@@ -37,11 +37,12 @@ describe('закрытие месяца', () => {
     await setup();
     await addTx({ date: '2026-09-20', amountMinor: 1_000_00 });
 
+    // старт 19 сентября: за 12 дней начисляется 1200 ₽, а не весь лимит
     const pending = await findPendingClose('2026-10-01');
-    expect(pending?.closingBalanceMinor).toBe(2_000_00);
+    expect(pending?.closingBalanceMinor).toBe(200_00);
 
     await closeMonth('2026-09', 'carry');
-    expect((await getMonth('2026-10'))?.openingBalanceMinor).toBe(2_000_00);
+    expect((await getMonth('2026-10'))?.openingBalanceMinor).toBe(200_00);
     expect((await getMonth('2026-09'))?.status).toBe('closed');
     expect(await savingsTotal()).toBe(10_000_00);
   });
@@ -52,7 +53,7 @@ describe('закрытие месяца', () => {
 
     await closeMonth('2026-09', 'savings');
     expect((await getMonth('2026-10'))?.openingBalanceMinor).toBe(0);
-    expect(await savingsTotal()).toBe(12_000_00);
+    expect(await savingsTotal()).toBe(10_200_00);
   });
 
   it('минус покрывается из копилки', async () => {
@@ -60,7 +61,7 @@ describe('закрытие месяца', () => {
     await addTx({ date: '2026-09-20', amountMinor: 3_500_00 });
 
     await closeMonth('2026-09', 'savings');
-    expect(await savingsTotal()).toBe(10_000_00 - 500_00);
+    expect(await savingsTotal()).toBe(10_000_00 - 2_300_00);
     expect((await getMonth('2026-10'))?.openingBalanceMinor).toBe(0);
   });
 
@@ -69,7 +70,7 @@ describe('закрытие месяца', () => {
     await addTx({ date: '2026-09-20', amountMinor: 3_500_00 });
 
     await closeMonth('2026-09', 'carry');
-    expect((await getMonth('2026-10'))?.openingBalanceMinor).toBe(-500_00);
+    expect((await getMonth('2026-10'))?.openingBalanceMinor).toBe(-2_300_00);
     expect(await savingsTotal()).toBe(10_000_00);
   });
 
@@ -77,7 +78,7 @@ describe('закрытие месяца', () => {
     await setup();
     await closeMonth('2026-09', 'savings');
     await closeMonth('2026-09', 'carry');
-    expect(await savingsTotal()).toBe(13_000_00);
+    expect(await savingsTotal()).toBe(11_200_00);
     expect((await getMonth('2026-10'))?.openingBalanceMinor).toBe(0);
   });
 
@@ -91,7 +92,7 @@ describe('закрытие месяца', () => {
     pending = await findPendingClose('2026-12-05');
     expect(pending?.month.id).toBe('2026-10');
     expect(pending?.month.accrualDays).toBe(31);
-    expect(pending?.month.openingBalanceMinor).toBe(3_000_00);
+    expect(pending?.month.openingBalanceMinor).toBe(1_200_00);
     await closeMonth('2026-10', 'carry');
 
     pending = await findPendingClose('2026-12-05');
@@ -99,8 +100,8 @@ describe('закрытие месяца', () => {
     await closeMonth('2026-11', 'carry');
 
     expect(await findPendingClose('2026-12-05')).toBeNull();
-    // три месяца без трат: 3000 + 3000 + 3000 переносятся в декабрь
-    expect((await getMonth('2026-12'))?.openingBalanceMinor).toBe(9_000_00);
+    // неполный сентябрь даёт 1200, октябрь и ноябрь — по 3000
+    expect((await getMonth('2026-12'))?.openingBalanceMinor).toBe(7_200_00);
   });
 
   it('трата задним числом попадает в свой месяц', async () => {

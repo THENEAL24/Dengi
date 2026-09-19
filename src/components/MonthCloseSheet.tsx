@@ -3,6 +3,7 @@ import { Sheet } from './ui/Sheet';
 import { ArrowDownIcon, ArrowUpIcon, PiggyIcon } from './ui/icons';
 import type { CarryDecision } from '@/db/db';
 import { closeMonth, type PendingClose } from '@/db/monthActions';
+import { allowanceFor } from '@/lib/budget';
 import { cn } from '@/lib/cn';
 import { monthTitle, monthTitleShort, shiftMonth } from '@/lib/date';
 import { haptic } from '@/lib/haptics';
@@ -53,8 +54,12 @@ export function MonthCloseSheet({ pending, currency, savingsMinor }: Props) {
 
         <div className="glass mt-4 overflow-hidden rounded-[var(--radius-card)]">
           <DetailRow
-            label="Лимит месяца"
-            value={formatMoney(month.limitMinor, currency, { cents: false })}
+            label="Начислено за месяц"
+            value={formatMoney(
+              allowanceFor(month.limitMinor, month.id, month.accrualStartDay),
+              currency,
+              { cents: false },
+            )}
           />
           {month.openingBalanceMinor !== 0 && (
             <DetailRow

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { MonthRecord } from '@/db/db';
-import { accruedDaysFor, closingBalanceOf, computeMonth, isMonthOver } from './budget';
+import { accruedDaysFor, closingBalanceOf, computeMonth, dailyRateFor, isMonthOver } from './budget';
 import { daysInMonth } from './date';
 
 function month(overrides: Partial<MonthRecord> = {}): MonthRecord {
@@ -39,6 +39,20 @@ describe('accruedDaysFor', () => {
   });
 });
 
+describe('дневная норма', () => {
+  it('всегда делит лимит на полное число дней месяца', () => {
+    expect(dailyRateFor(3_000_00, '2026-09')).toBe(100_00);
+    expect(dailyRateFor(3_100_00, '2026-10')).toBe(100_00);
+  });
+
+  it('не зависит от даты старта учёта', () => {
+    const fromFirst = computeMonth(month(), 0, '2026-09-19').dailyRateMinor;
+    const fromMiddle = computeMonth(month({ accrualStartDay: 19 }), 0, '2026-09-19')
+      .dailyRateMinor;
+    expect(fromMiddle).toBe(fromFirst);
+  });
+});
+
 describe('computeMonth', () => {
   it('баланс = перенос + начисленное − потраченное', () => {
     const result = computeMonth(month({ openingBalanceMinor: 500_00 }), 1_200_00, '2026-09-10');
@@ -46,6 +60,28 @@ describe('computeMonth', () => {
     expect(result.accruedMinor).toBe(1_000_00);
     expect(result.dailyRateMinor).toBe(100_00);
     expect(result.balanceMinor).toBe(500_00 + 1_000_00 - 1_200_00);
+  });
+
+  it('старт посреди месяца: доступен только перенос плюс дни с даты старта', () => {
+    const m = month({ accrualStartDay: 19, openingBalanceMinor: 700_00 });
+
+    // в день старта начислена ровно одна дневная норма, прошедшие 18 дней не учитываются
+    const first = computeMonth(m, 0, '2026-09-19');
+    expect(first.accruedMinor).toBe(100_00);
+    expect(first.balanceMinor).toBe(700_00 + 100_00);
+
+    // через неделю — семь дневных норм
+    const later = computeMonth(m, 0, '2026-09-25');
+    expect(later.accruedMinor).toBe(700_00);
+    expect(later.balanceMinor).toBe(700_00 + 700_00);
+  });
+
+  it('за неполный месяц начисляется не весь лимит, а только его дни', () => {
+    const m = month({ accrualStartDay: 19 });
+    const result = computeMonth(m, 0, '2026-09-30');
+    expect(result.monthAllowanceMinor).toBe(1_200_00);
+    expect(result.accruedMinor).toBe(1_200_00);
+    expect(result.projectedEndMinor).toBe(1_200_00);
   });
 
   it('уходит в минус, если потрачено больше начисленного', () => {
@@ -95,9 +131,15 @@ describe('computeMonth', () => {
 });
 
 describe('closingBalanceOf и isMonthOver', () => {
-  it('итог месяца считается по полному лимиту', () => {
+  it('итог полного месяца считается по всему лимиту', () => {
     expect(closingBalanceOf(month({ openingBalanceMinor: 100_00 }), 2_500_00)).toBe(600_00);
     expect(closingBalanceOf(month(), 3_500_00)).toBe(-500_00);
+  });
+
+  it('итог неполного месяца — только за его дни', () => {
+    const m = month({ accrualStartDay: 19, openingBalanceMinor: 300_00 });
+    expect(closingBalanceOf(m, 0)).toBe(300_00 + 1_200_00);
+    expect(closingBalanceOf(m, 2_000_00)).toBe(300_00 + 1_200_00 - 2_000_00);
   });
 
   it('месяц считается прошедшим только после последнего дня', () => {

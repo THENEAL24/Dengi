@@ -113,13 +113,17 @@ export function Settings({ settings }: Props) {
       {math && (
         <List
           header={monthTitle(currentMonthId())}
-          footer="Дневная норма считается от лимита и числа дней начисления в этом месяце."
+          footer="Дневная норма — это лимит, поделённый на число дней месяца. Она начисляется с дня старта учёта, поэтому в первый месяц начислится меньше лимита."
         >
           <ListRow
             label="Перенос с прошлого месяца"
             value={formatMoney(math.openingBalanceMinor, currency, { cents: false, signed: true })}
           />
           <ListRow label="Дней начисления" value={pluralDays(math.accrualDays)} />
+          <ListRow
+            label="Начислится за месяц"
+            value={formatMoney(math.monthAllowanceMinor, currency, { cents: false })}
+          />
           <ListRow label="Начислено" value={formatMoney(math.accruedMinor, currency, { cents: false })} />
           <ListRow
             label="Потрачено"

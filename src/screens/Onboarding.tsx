@@ -5,16 +5,16 @@ import { Keypad } from '@/components/Keypad';
 import { Button } from '@/components/ui/Button';
 import { ChevronLeftIcon } from '@/components/ui/icons';
 import { completeOnboarding } from '@/db/repo';
-import { dailyRateFor } from '@/lib/budget';
+import { allowanceFor, dailyRateFor } from '@/lib/budget';
 import { cn } from '@/lib/cn';
-import { dayOf, daysInMonth, fullDate, monthIdOf, monthStartIso, todayIso } from '@/lib/date';
+import { dayOf, daysInMonth, fullDate, monthIdOf, todayIso } from '@/lib/date';
 import { pluralDays } from '@/lib/plural';
 import { formatMoney, keypadToMinor } from '@/lib/money';
 
 const CURRENCY = 'RUB';
 const STEPS = 5;
 
-type StartMode = 'today' | 'monthStart' | 'custom';
+type StartMode = 'today' | 'custom';
 
 export function Onboarding() {
   const [step, setStep] = useState(0);
@@ -28,8 +28,7 @@ export function Onboarding() {
   const [saving, setSaving] = useState(false);
 
   const today = todayIso();
-  const startDate =
-    startMode === 'today' ? today : startMode === 'monthStart' ? monthStartIso(monthIdOf(today)) : customDate;
+  const startDate = startMode === 'today' ? today : customDate;
 
   const limitMinor = keypadToMinor(limit);
   const savingsMinor = keypadToMinor(savings);
@@ -41,7 +40,13 @@ export function Onboarding() {
   }, [startDate]);
 
   const dailyRate = useMemo(
-    () => dailyRateFor(limitMinor, monthIdOf(startDate), dayOf(startDate)),
+    () => dailyRateFor(limitMinor, monthIdOf(startDate)),
+    [limitMinor, startDate],
+  );
+
+  // за прошедшие до старта дни ничего не начисляется, поэтому первый месяц может быть короче
+  const firstMonthAllowance = useMemo(
+    () => allowanceFor(limitMinor, monthIdOf(startDate), dayOf(startDate)),
     [limitMinor, startDate],
   );
 
@@ -143,7 +148,7 @@ export function Onboarding() {
           {step === 2 && (
             <StepShell
               title="С какого дня начинаем?"
-              hint="От этой даты считается дневная норма первого месяца."
+              hint="Бюджет начнёт пополняться с этого дня. За дни до старта ничего не начисляется — прошлые траты приложение не знает."
               footer={
                 <Button size="lg" full onClick={() => go(3)}>
                   Далее
@@ -156,12 +161,6 @@ export function Onboarding() {
                   value={fullDate(today)}
                   active={startMode === 'today'}
                   onClick={() => setStartMode('today')}
-                />
-                <OptionRow
-                  label="С начала месяца"
-                  value={fullDate(monthStartIso(monthIdOf(today)))}
-                  active={startMode === 'monthStart'}
-                  onClick={() => setStartMode('monthStart')}
                 />
                 <OptionRow
                   label="Своя дата"
@@ -184,13 +183,19 @@ export function Onboarding() {
 
               <div className="glass mt-4 rounded-[var(--radius-card)] p-4">
                 <p className="text-[15px] text-[var(--label-secondary)]">
-                  {formatMoney(limitMinor, CURRENCY, { cents: false })} на {pluralDays(accrualDays)}
+                  {formatMoney(limitMinor, CURRENCY, { cents: false })} на{' '}
+                  {pluralDays(daysInMonth(monthIdOf(startDate)))} месяца
                 </p>
                 <p className="money mt-1 text-[28px] font-bold">
                   {formatMoney(dailyRate, CURRENCY, { cents: false })}
                   <span className="ml-1.5 text-[15px] font-normal text-[var(--label-secondary)]">
                     в день
                   </span>
+                </p>
+                <p className="mt-2 text-[14px] leading-snug text-[var(--label-secondary)]">
+                  До конца месяца начислится{' '}
+                  {formatMoney(firstMonthAllowance, CURRENCY, { cents: false })} за{' '}
+                  {pluralDays(accrualDays)}
                 </p>
               </div>
             </StepShell>
@@ -251,7 +256,12 @@ export function Onboarding() {
                     value={formatMoney(openingMinor, CURRENCY, { signed: true })}
                   />
                 )}
-                <SummaryRow label="Дней в первом месяце" value={pluralDays(accrualDays)} last />
+                <SummaryRow label="Дней в первом месяце" value={pluralDays(accrualDays)} />
+                <SummaryRow
+                  label="Начислится до конца месяца"
+                  value={formatMoney(firstMonthAllowance, CURRENCY, { cents: false })}
+                  last
+                />
               </div>
             </StepShell>
           )}

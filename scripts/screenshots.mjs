@@ -53,12 +53,14 @@ await tapDigits('150000');
 await page.getByRole('button', { name: 'Далее' }).click();
 await shot('02-onboarding-start');
 
-await page.getByRole('button', { name: /С начала месяца/ }).click();
+await page.getByRole('button', { name: /С сегодня/ }).click();
 await page.waitForTimeout(200);
 await shot('03-onboarding-start-selected');
 await page.getByRole('button', { name: 'Далее' }).click();
 
-await page.getByRole('button', { name: 'Пропустить' }).click();
+// начальный остаток — именно он становится точкой отсчёта «доступно»
+await tapDigits('5000');
+await page.getByRole('button', { name: 'Далее' }).click();
 await shot('04-onboarding-summary');
 await page.getByRole('button', { name: 'Начать' }).click();
 

@@ -101,9 +101,9 @@ export function History({ settings, onEdit }: Props) {
               <div
                 className="h-full rounded-full transition-[width] duration-500"
                 style={{
-                  width: `${Math.min(100, (spentMinor / Math.max(1, math.limitMinor)) * 100)}%`,
+                  width: `${Math.min(100, (spentMinor / Math.max(1, math.monthAllowanceMinor)) * 100)}%`,
                   backgroundColor:
-                    spentMinor > math.limitMinor ? 'var(--negative)' : 'var(--accent)',
+                    spentMinor > math.monthAllowanceMinor ? 'var(--negative)' : 'var(--accent)',
                 }}
               />
             </div>

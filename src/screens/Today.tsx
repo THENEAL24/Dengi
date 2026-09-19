@@ -108,7 +108,11 @@ export function Today({ settings, onAddExpense, onOpenHistory }: Props) {
         <StatCard
           label="Потрачено за месяц"
           value={math ? formatMoney(math.spentMinor, currency, { cents: false }) : '—'}
-          hint={math ? `из ${formatMoney(math.limitMinor, currency, { cents: false })}` : undefined}
+          hint={
+            math
+              ? `из ${formatMoney(math.monthAllowanceMinor, currency, { cents: false })}`
+              : undefined
+          }
         />
         <StatCard
           label="Копилка"
