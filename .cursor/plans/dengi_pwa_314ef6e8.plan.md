@@ -37,7 +37,7 @@ todos:
     status: completed
   - id: polish
     content: "Полировка: spring-анимации, проверка офлайна, установка на iPhone через HTTPS, прогон на реальном устройстве"
-    status: in_progress
+    status: completed
 isProject: false
 ---
 
