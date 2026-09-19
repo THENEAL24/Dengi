@@ -1,0 +1,145 @@
+/* Тема всегда выставлена явно через data-theme (см. скрипт в index.html),
+   поэтому дублировать токены в prefers-color-scheme не нужно. */
+
+:root {
+  --ios-blue: #0a84ff;
+  --ios-green: #30d158;
+  --ios-red: #ff453a;
+  --ios-orange: #ff9f0a;
+  --ios-yellow: #ffd60a;
+  --ios-purple: #bf5af2;
+  --ios-pink: #ff375f;
+  --ios-teal: #40c8e0;
+  --ios-indigo: #5e5ce6;
+  --ios-mint: #66d4cf;
+  --ios-brown: #ac8e68;
+  --ios-gray: #8e8e93;
+
+  --radius-card: 24px;
+  --radius-sheet: 30px;
+  --radius-control: 16px;
+  --radius-pill: 999px;
+
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+
+  --tabbar-height: 54px;
+  --page-gutter: 16px;
+
+  --spring-fast: 280ms cubic-bezier(0.32, 0.72, 0, 1);
+  --spring-slow: 480ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --bg: #08080c;
+  --bg-blob-a: #0a84ff;
+  --bg-blob-b: #30d158;
+  --bg-blob-c: #bf5af2;
+  --bg-blob-opacity: 0.22;
+
+  --surface: rgba(28, 28, 34, 0.72);
+  --surface-solid: #16161c;
+
+  --label: #ffffff;
+  --label-secondary: rgba(235, 235, 245, 0.62);
+  --label-tertiary: rgba(235, 235, 245, 0.34);
+  --label-quaternary: rgba(235, 235, 245, 0.18);
+
+  --separator: rgba(255, 255, 255, 0.11);
+  --fill: rgba(120, 120, 128, 0.36);
+  --fill-secondary: rgba(120, 120, 128, 0.26);
+  --fill-tertiary: rgba(118, 118, 128, 0.18);
+
+  --glass-fill: rgba(255, 255, 255, 0.07);
+  --glass-fill-strong: rgba(255, 255, 255, 0.12);
+  --glass-solid: rgba(20, 20, 26, 0.94);
+  --glass-solid-strong: rgba(26, 26, 32, 0.97);
+  --glass-border: rgba(255, 255, 255, 0.13);
+  --glass-border-top: rgba(255, 255, 255, 0.28);
+  --glass-inner-light: rgba(255, 255, 255, 0.3);
+  --glass-shadow: 0 16px 44px rgba(0, 0, 0, 0.5);
+
+  --accent: var(--ios-green);
+  --negative: var(--ios-red);
+  --link: var(--ios-blue);
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --bg: #e7e9f1;
+  --bg-blob-a: #0a84ff;
+  --bg-blob-b: #34c759;
+  --bg-blob-c: #af52de;
+  --bg-blob-opacity: 0.3;
+
+  --surface: rgba(255, 255, 255, 0.78);
+  --surface-solid: #ffffff;
+
+  --label: #000000;
+  --label-secondary: rgba(60, 60, 67, 0.62);
+  --label-tertiary: rgba(60, 60, 67, 0.34);
+  --label-quaternary: rgba(60, 60, 67, 0.18);
+
+  --separator: rgba(60, 60, 67, 0.13);
+  --fill: rgba(120, 120, 128, 0.2);
+  --fill-secondary: rgba(120, 120, 128, 0.16);
+  --fill-tertiary: rgba(118, 118, 128, 0.12);
+
+  --glass-fill: rgba(255, 255, 255, 0.55);
+  --glass-fill-strong: rgba(255, 255, 255, 0.72);
+  --glass-solid: rgba(252, 252, 254, 0.95);
+  --glass-solid-strong: rgba(255, 255, 255, 0.98);
+  --glass-border: rgba(255, 255, 255, 0.85);
+  --glass-border-top: rgba(255, 255, 255, 1);
+  --glass-inner-light: rgba(255, 255, 255, 0.9);
+  --glass-shadow: 0 14px 38px rgba(22, 26, 48, 0.16);
+
+  --accent: #1eaf52;
+  --negative: #e0342a;
+  --link: #007aff;
+}
+
+/* inline, потому что значения ссылаются на переменные, меняющиеся в рантайме */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-solid: var(--surface-solid);
+  --color-label: var(--label);
+  --color-label-secondary: var(--label-secondary);
+  --color-label-tertiary: var(--label-tertiary);
+  --color-label-quaternary: var(--label-quaternary);
+  --color-separator: var(--separator);
+  --color-fill: var(--fill);
+  --color-fill-secondary: var(--fill-secondary);
+  --color-fill-tertiary: var(--fill-tertiary);
+  --color-accent: var(--accent);
+  --color-negative: var(--negative);
+  --color-link: var(--link);
+
+  --color-ios-blue: var(--ios-blue);
+  --color-ios-green: var(--ios-green);
+  --color-ios-red: var(--ios-red);
+  --color-ios-orange: var(--ios-orange);
+  --color-ios-yellow: var(--ios-yellow);
+  --color-ios-purple: var(--ios-purple);
+  --color-ios-pink: var(--ios-pink);
+  --color-ios-teal: var(--ios-teal);
+  --color-ios-indigo: var(--ios-indigo);
+  --color-ios-mint: var(--ios-mint);
+  --color-ios-brown: var(--ios-brown);
+  --color-ios-gray: var(--ios-gray);
+
+  --radius-card: var(--radius-card);
+  --radius-sheet: var(--radius-sheet);
+  --radius-control: var(--radius-control);
+
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif;
+  --font-rounded:
+    ui-rounded, 'SF Pro Rounded', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+}

@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover"
+    />
+
+    <title>Деньги</title>
+    <meta name="description" content="Дневной бюджет и учёт расходов" />
+
+    <!-- iOS: полноэкранный режим с домашнего экрана -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Деньги" />
+    <meta name="format-detection" content="telephone=no" />
+
+    <meta name="theme-color" content="#08080c" />
+    <meta name="color-scheme" content="dark light" />
+
+    <link rel="icon" type="image/svg+xml" href="/icons/favicon.svg" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+
+    <script>
+      // Тема ставится до первой краски, иначе на старте мигает чужой фон.
+      (function () {
+        var saved = localStorage.getItem('dengi:theme') || 'auto';
+        var dark =
+          saved === 'dark' ||
+          (saved === 'auto' && !window.matchMedia('(prefers-color-scheme: light)').matches);
+        document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute('content', dark ? '#08080c' : '#e7e9f1');
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

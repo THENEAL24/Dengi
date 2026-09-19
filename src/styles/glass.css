@@ -1,0 +1,93 @@
+/* Fallback-first: сперва читаемая непрозрачная подложка, стекло — только как enhancement.
+   В -webkit-backdrop-filter значения захардкожены: Safari не резолвит там var(). */
+
+.glass {
+  position: relative;
+  background: var(--glass-solid);
+  border: 1px solid var(--glass-border);
+  border-top-color: var(--glass-border-top);
+  box-shadow:
+    inset 0 1px 0 var(--glass-inner-light),
+    var(--glass-shadow);
+}
+
+.glass-flat {
+  background: var(--glass-solid);
+  border: 1px solid var(--glass-border);
+}
+
+.glass-strong {
+  background: var(--glass-solid-strong);
+  border: 1px solid var(--glass-border);
+  border-top-color: var(--glass-border-top);
+  box-shadow:
+    inset 0 1px 0 var(--glass-inner-light),
+    var(--glass-shadow);
+}
+
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  @media (prefers-reduced-transparency: no-preference) {
+    .glass {
+      background: var(--glass-fill);
+      -webkit-backdrop-filter: blur(22px) saturate(180%);
+      backdrop-filter: blur(22px) saturate(180%);
+    }
+
+    .glass-flat {
+      background: var(--glass-fill);
+      -webkit-backdrop-filter: blur(16px) saturate(160%);
+      backdrop-filter: blur(16px) saturate(160%);
+    }
+
+    .glass-strong {
+      background: var(--glass-fill-strong);
+      -webkit-backdrop-filter: blur(34px) saturate(190%);
+      backdrop-filter: blur(34px) saturate(190%);
+    }
+  }
+}
+
+/* Фоновые блобы — стеклу нужно что-то размывать, иначе эффекта не видно */
+.app-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-color: var(--bg);
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.app-bg::before,
+.app-bg::after {
+  content: '';
+  position: absolute;
+  width: 78vmax;
+  height: 78vmax;
+  border-radius: 50%;
+  filter: blur(70px);
+  opacity: var(--bg-blob-opacity);
+}
+
+.app-bg::before {
+  top: -32vmax;
+  left: -26vmax;
+  background: radial-gradient(circle at 50% 50%, var(--bg-blob-b), transparent 62%);
+}
+
+.app-bg::after {
+  right: -34vmax;
+  bottom: -30vmax;
+  background: radial-gradient(circle at 50% 50%, var(--bg-blob-a), transparent 62%);
+}
+
+.app-bg > span {
+  position: absolute;
+  top: 38%;
+  right: -18vmax;
+  width: 52vmax;
+  height: 52vmax;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: calc(var(--bg-blob-opacity) * 0.7);
+  background: radial-gradient(circle at 50% 50%, var(--bg-blob-c), transparent 62%);
+}
