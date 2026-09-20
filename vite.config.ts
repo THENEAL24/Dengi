@@ -33,8 +33,8 @@ export default defineConfig(async () => ({
         scope: '/',
         display: 'standalone',
         orientation: 'portrait',
-        background_color: '#08080c',
-        theme_color: '#08080c',
+        background_color: '#1a1a20',
+        theme_color: '#1a1a20',
         categories: ['finance', 'productivity'],
         icons: [
           { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },

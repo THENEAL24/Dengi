@@ -13,11 +13,11 @@
     <!-- iOS: полноэкранный режим с домашнего экрана -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Деньги" />
     <meta name="format-detection" content="telephone=no" />
 
-    <meta name="theme-color" content="#08080c" />
+    <meta name="theme-color" content="#1a1a20" />
     <meta name="color-scheme" content="dark light" />
 
     <link rel="icon" type="image/svg+xml" href="/icons/favicon.svg" />
@@ -32,8 +32,7 @@
           (saved === 'auto' && !window.matchMedia('(prefers-color-scheme: light)').matches);
         document.documentElement.dataset.theme = dark ? 'dark' : 'light';
         var meta = document.querySelector('meta[name="theme-color"]');
-        if (meta) meta.setAttribute('content', dark ? '#08080c' : '#e7e9f1');
-        document.documentElement.style.setProperty('--app-height', window.innerHeight + 'px');
+        if (meta) meta.setAttribute('content', dark ? '#1a1a20' : '#fcfcfe');
       })();
     </script>
   </head>

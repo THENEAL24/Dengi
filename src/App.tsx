@@ -11,7 +11,6 @@ import { Onboarding } from '@/screens/Onboarding';
 import { Settings } from '@/screens/Settings';
 import { Stats } from '@/screens/Stats';
 import { Today } from '@/screens/Today';
-import { useViewportHeight } from '@/hooks/useViewportHeight';
 import {
   useApplyTheme,
   usePendingClose,
@@ -34,7 +33,6 @@ export function App() {
   });
 
   useApplyTheme(settings?.theme);
-  useViewportHeight();
 
   useEffect(() => {
     void seedCategoriesIfEmpty();
@@ -58,30 +56,29 @@ export function App() {
       {settingsQuery === undefined ? null : !settings?.onboarded ? (
         <Onboarding />
       ) : (
-        <div className="app-shell">
-          <div className="app-shell__main">
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.div
-                key={tab}
-                className="h-full"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.16 }}
-              >
-                {tab === 'today' && (
-                  <Today
-                    settings={settings}
-                    onAddExpense={openNewExpense}
-                    onOpenHistory={() => setTab('history')}
-                  />
-                )}
-                {tab === 'history' && <History settings={settings} onEdit={openEditExpense} />}
-                {tab === 'stats' && <Stats settings={settings} />}
-                {tab === 'settings' && <Settings settings={settings} />}
-              </motion.div>
-            </AnimatePresence>
-          </div>
+        <>
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={tab}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.16 }}
+            >
+              {tab === 'today' && (
+                <Today
+                  settings={settings}
+                  onAddExpense={openNewExpense}
+                  onOpenHistory={() => setTab('history')}
+                />
+              )}
+              {tab === 'history' && <History settings={settings} onEdit={openEditExpense} />}
+              {tab === 'stats' && <Stats settings={settings} />}
+              {tab === 'settings' && <Settings settings={settings} />}
+            </motion.div>
+          </AnimatePresence>
+
+          <TabBar active={tab} onChange={setTab} />
 
           <ExpenseSheet
             open={expense.open}
@@ -97,10 +94,8 @@ export function App() {
               savingsMinor={savings}
             />
           )}
-        </div>
+        </>
       )}
-
-      {settings?.onboarded && <TabBar active={tab} onChange={setTab} />}
     </>
   );
 }

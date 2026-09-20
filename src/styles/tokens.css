@@ -21,14 +21,13 @@
   --radius-pill: 999px;
 
   --safe-top: env(safe-area-inset-top, 0px);
-  /* constant() — fallback для iOS 11–12 */
+  /* constant() — fallback для старых iOS */
   --safe-bottom: constant(safe-area-inset-bottom);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
 
-  --app-height: 100dvh;
-  --tabbar-height: 54px;
+  --tabbar-height: 58px;
   --page-gutter: 16px;
 
   --spring-fast: 280ms cubic-bezier(0.32, 0.72, 0, 1);

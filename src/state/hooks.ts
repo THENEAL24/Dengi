@@ -93,7 +93,7 @@ export function useApplyTheme(theme: Theme | undefined) {
       document.documentElement.dataset.theme = dark ? 'dark' : 'light';
       document
         .querySelector('meta[name="theme-color"]')
-        ?.setAttribute('content', dark ? '#08080c' : '#e7e9f1');
+        ?.setAttribute('content', dark ? '#1a1a20' : '#fcfcfe');
     };
 
     apply();

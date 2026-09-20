@@ -18,7 +18,7 @@ export function Screen({ title, children, action, subtitle, withTabBar = true }:
   const raf = useRef(0);
 
   return (
-    <div className="relative flex h-full min-h-0 flex-col">
+    <div className="relative flex h-dvh flex-col">
       <header
         className={cn(
           'absolute inset-x-0 top-0 z-30 transition-[background-color,box-shadow] duration-200',
@@ -52,7 +52,7 @@ export function Screen({ title, children, action, subtitle, withTabBar = true }:
         style={{
           paddingTop: 'calc(var(--safe-top) + 44px)',
           paddingBottom: withTabBar
-            ? 'calc(var(--tabbar-height) + var(--safe-bottom) + 28px)'
+            ? 'calc(var(--safe-bottom) + var(--tabbar-height) + 28px)'
             : 'calc(var(--safe-bottom) + 28px)',
         }}
       >

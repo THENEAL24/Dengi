@@ -18,8 +18,11 @@ type Props = {
 
 export function TabBar({ active, onChange }: Props) {
   return (
-    <nav className="tab-bar hairline-t" aria-label="Навигация">
-      <div className="tab-bar__content mx-auto flex max-w-[520px] items-stretch">
+    <nav
+      className="glass-flat fixed inset-x-0 bottom-0 z-40 border-0 hairline-t"
+      style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+    >
+      <div className="mx-auto flex h-[var(--tabbar-height)] w-full max-w-[520px] items-stretch">
         {tabs.map(({ key, label, Icon }) => {
           const isActive = key === active;
           return (
@@ -31,18 +34,17 @@ export function TabBar({ active, onChange }: Props) {
                 onChange(key);
               }}
               className={cn(
-                'flex flex-1 flex-col items-center justify-center gap-0.5 pt-1 transition-colors',
+                'flex min-w-0 flex-1 flex-col items-center justify-center gap-1 pt-3 transition-colors',
                 isActive ? 'text-[var(--link)]' : 'text-[var(--label-tertiary)]',
               )}
               aria-current={isActive ? 'page' : undefined}
             >
-              <Icon size={25} strokeWidth={isActive ? 2.2 : 1.8} />
-              <span className="text-[10px] font-medium tracking-tight">{label}</span>
+              <Icon size={28} strokeWidth={isActive ? 2.2 : 1.8} />
+              <span className="text-[11px] font-medium tracking-tight">{label}</span>
             </button>
           );
         })}
       </div>
-      <div className="tab-bar__safe" aria-hidden="true" />
     </nav>
   );
 }
