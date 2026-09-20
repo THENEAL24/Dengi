@@ -87,6 +87,7 @@ export async function topUpAvailable(amountMinor: number, _note?: string, today 
 
   await db.months.update(monthId, {
     balanceAdjustmentsMinor: (month.balanceAdjustmentsMinor ?? 0) + amountMinor,
+    externalTopUpsMinor: (month.externalTopUpsMinor ?? 0) + amountMinor,
   });
 }
 

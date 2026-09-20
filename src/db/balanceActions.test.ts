@@ -47,13 +47,18 @@ describe('переводы и пополнения', () => {
     expect(await savingsTotal()).toBe(7_000_00);
   });
 
-  it('пополняет доступные', async () => {
+  it('пополняет доступные и учитывает зачисления извне', async () => {
     await setup();
     await topUpAvailable(2_000_00, undefined, '2026-09-05');
+    await topUpAvailable(1_500_00, undefined, '2026-09-10');
 
     const month = await db.months.get('2026-09');
-    expect(month?.balanceAdjustmentsMinor).toBe(2_000_00);
+    expect(month?.balanceAdjustmentsMinor).toBe(3_500_00);
+    expect(month?.externalTopUpsMinor).toBe(3_500_00);
     expect(await savingsTotal()).toBe(10_000_00);
+
+    const math = computeMonth(month!, 0, '2026-09-10');
+    expect(math.externalTopUpsMinor).toBe(3_500_00);
   });
 
   it('не даёт перевести больше доступного', async () => {

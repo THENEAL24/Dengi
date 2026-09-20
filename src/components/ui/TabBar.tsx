@@ -19,7 +19,7 @@ type Props = {
 export function TabBar({ active, onChange }: Props) {
   return (
     <nav
-      className="glass-flat fixed inset-x-0 bottom-0 z-40 border-0 hairline-t"
+      className="glass-flat z-40 shrink-0 border-0 hairline-t"
       style={{ paddingBottom: 'var(--safe-bottom)' }}
     >
       <div className="mx-auto flex h-[var(--tabbar-height)] max-w-[520px] items-stretch">

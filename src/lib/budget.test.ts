@@ -13,6 +13,7 @@ function month(overrides: Partial<MonthRecord> = {}): MonthRecord {
     accrualDays: overrides.accrualDays ?? daysInMonth(id) - startDay + 1,
     openingBalanceMinor: 0,
     balanceAdjustmentsMinor: 0,
+    externalTopUpsMinor: 0,
     status: 'open',
     createdAt: 0,
     ...overrides,

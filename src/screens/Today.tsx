@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { AmountSheet } from '@/components/AmountSheet';
 import { BalanceSheet } from '@/components/BalanceSheet';
 import { Screen } from '@/components/ui/Screen';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { ProgressRing } from '@/components/ui/ProgressRing';
-import { PlusIcon } from '@/components/ui/icons';
+import { ArrowDownIcon, PlusIcon } from '@/components/ui/icons';
+import { topUpAvailable } from '@/db/balanceActions';
 import { TxRow } from '@/components/TxRow';
 import type { Settings } from '@/db/db';
 import { listRecentTx } from '@/db/repo';
@@ -23,6 +25,7 @@ type Props = {
 
 export function Today({ settings, onAddExpense, onOpenHistory }: Props) {
   const [balanceOpen, setBalanceOpen] = useState(false);
+  const [topUpOpen, setTopUpOpen] = useState(false);
   const today = useToday();
   const view = useCurrentMonthView();
   const savings = useSavingsTotal();
@@ -87,18 +90,48 @@ export function Today({ settings, onAddExpense, onOpenHistory }: Props) {
           </ProgressRing>
         </button>
 
-        <button
-          type="button"
-          onClick={() => {
-            haptic('medium');
-            onAddExpense();
-          }}
-          className="pressable mt-5 flex h-[52px] w-full items-center justify-center gap-2 rounded-[18px] bg-[var(--link)] text-[18px] font-semibold text-white"
-        >
-          <PlusIcon size={20} />
-          Добавить трату
-        </button>
+        <div className="mt-5 flex w-full flex-col gap-2.5">
+          <button
+            type="button"
+            onClick={() => {
+              haptic('medium');
+              onAddExpense();
+            }}
+            className="pressable flex h-[52px] w-full items-center justify-center gap-2 rounded-[18px] bg-[var(--link)] text-[18px] font-semibold text-white"
+          >
+            <PlusIcon size={20} />
+            Добавить трату
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              haptic('medium');
+              setTopUpOpen(true);
+            }}
+            className="pressable flex h-[52px] w-full items-center justify-center gap-2 rounded-[18px] bg-[var(--ios-green)] text-[18px] font-semibold text-white"
+          >
+            <ArrowDownIcon size={20} />
+            Зачислить
+          </button>
+        </div>
       </div>
+
+      {math && (
+        <div className="mt-4 px-[var(--page-gutter)]">
+          <GlassCard className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[13px] text-[var(--label-secondary)]">Зачислено за месяц</p>
+              <p className="text-[15px]">Извне, не из копилки</p>
+            </div>
+            <p className="money text-[24px] font-bold text-[var(--ios-green)]">
+              {formatMoney(math.externalTopUpsMinor, currency, {
+                cents: false,
+                signed: math.externalTopUpsMinor > 0,
+              })}
+            </p>
+          </GlassCard>
+        </div>
+      )}
 
       <div className="mt-4 grid grid-cols-2 gap-2.5 px-[var(--page-gutter)]">
         <StatCard
@@ -203,6 +236,20 @@ export function Today({ settings, onAddExpense, onOpenHistory }: Props) {
           savingsMinor={savings}
         />
       )}
+
+      <AmountSheet
+        open={topUpOpen}
+        onClose={() => setTopUpOpen(false)}
+        title="Зачислить на доступные"
+        hint="Деньги добавятся к «Доступно» и не затронут копилку — например, если пришла зарплата или возврат."
+        currency={currency}
+        submitLabel="Зачислить"
+        onSubmit={async (minor) => {
+          if (minor <= 0) return;
+          await topUpAvailable(minor);
+          haptic('success');
+        }}
+      />
     </Screen>
   );
 }

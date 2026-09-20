@@ -24,6 +24,8 @@ export type MonthMath = {
   balanceMinor: number;
   openingBalanceMinor: number;
   balanceAdjustmentsMinor: number;
+  /** Зачисления извне за месяц (кнопка «Зачислить») */
+  externalTopUpsMinor: number;
   limitMinor: number;
   /** Сколько всего начислится на «доступно» за этот месяц */
   monthAllowanceMinor: number;
@@ -116,6 +118,7 @@ export function computeMonth(
     balanceMinor,
     openingBalanceMinor: month.openingBalanceMinor,
     balanceAdjustmentsMinor: adjustments,
+    externalTopUpsMinor: month.externalTopUpsMinor ?? 0,
     limitMinor: month.limitMinor,
     monthAllowanceMinor,
     monthProgress: accruedDays / accrualDays,

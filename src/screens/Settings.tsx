@@ -147,6 +147,12 @@ export function Settings({ settings }: Props) {
             label="Перенос с прошлого месяца"
             value={formatMoney(math.openingBalanceMinor, currency, { cents: false, signed: true })}
           />
+          {math.externalTopUpsMinor > 0 && (
+            <ListRow
+              label="Зачислено извне"
+              value={formatMoney(math.externalTopUpsMinor, currency, { cents: false })}
+            />
+          )}
           {math.balanceAdjustmentsMinor !== 0 && (
             <ListRow
               label="Корректировки"

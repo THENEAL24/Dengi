@@ -42,6 +42,8 @@ export interface MonthRecord {
   openingBalanceMinor: number;
   /** Пополнения и переводы в/из копилки за текущий месяц */
   balanceAdjustmentsMinor?: number;
+  /** Зачисления на «доступно» извне (не из копилки и не из лимита) */
+  externalTopUpsMinor?: number;
   /** Своя дневная норма для этого месяца. null — из настроек */
   dailyAccrualMinor?: number | null;
   /** До какого дня начислено автоотложение (включительно) */
@@ -131,6 +133,23 @@ export class DengiDb extends Dexie {
           .modify((settings: Settings) => {
             settings.savingsStrategy ??= 'remainder';
             settings.savingsGoalMonths ??= 12;
+          });
+      });
+
+    this.version(3)
+      .stores({
+        settings: 'id',
+        months: 'id, status',
+        tx: '++id, monthId, date, categoryId, createdAt',
+        categories: '++id, order',
+        savings: '++id, date, kind, monthId',
+      })
+      .upgrade(async (tx) => {
+        await tx
+          .table('months')
+          .toCollection()
+          .modify((month: MonthRecord) => {
+            month.externalTopUpsMinor ??= 0;
           });
       });
   }

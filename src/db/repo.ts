@@ -72,6 +72,7 @@ export async function createMonth(input: {
     accrualDays: total - startDay + 1,
     openingBalanceMinor: input.openingBalanceMinor ?? 0,
     balanceAdjustmentsMinor: 0,
+    externalTopUpsMinor: 0,
     status: 'open',
     createdAt: Date.now(),
   };
@@ -304,6 +305,7 @@ export async function completeOnboarding(input: {
       accrualDays: total - startDay + 1,
       openingBalanceMinor: input.openingBalanceMinor ?? 0,
       balanceAdjustmentsMinor: 0,
+      externalTopUpsMinor: 0,
       status: 'open',
       createdAt: Date.now(),
     });
