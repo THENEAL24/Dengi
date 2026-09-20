@@ -21,10 +21,13 @@
   --radius-pill: 999px;
 
   --safe-top: env(safe-area-inset-top, 0px);
+  /* constant() — fallback для iOS 11–12 */
+  --safe-bottom: constant(safe-area-inset-bottom);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
 
+  --app-height: 100dvh;
   --tabbar-height: 54px;
   --page-gutter: 16px;
 
@@ -62,6 +65,7 @@
   --glass-border-top: rgba(255, 255, 255, 0.28);
   --glass-inner-light: rgba(255, 255, 255, 0.3);
   --glass-shadow: 0 16px 44px rgba(0, 0, 0, 0.5);
+  --tabbar-bg: var(--glass-solid-strong);
 
   --accent: var(--ios-green);
   --negative: var(--ios-red);
@@ -98,6 +102,7 @@
   --glass-border-top: rgba(255, 255, 255, 1);
   --glass-inner-light: rgba(255, 255, 255, 0.9);
   --glass-shadow: 0 14px 38px rgba(22, 26, 48, 0.16);
+  --tabbar-bg: var(--glass-solid-strong);
 
   --accent: #1eaf52;
   --negative: #e0342a;

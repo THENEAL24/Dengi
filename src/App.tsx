@@ -11,6 +11,7 @@ import { Onboarding } from '@/screens/Onboarding';
 import { Settings } from '@/screens/Settings';
 import { Stats } from '@/screens/Stats';
 import { Today } from '@/screens/Today';
+import { useViewportHeight } from '@/hooks/useViewportHeight';
 import {
   useApplyTheme,
   usePendingClose,
@@ -33,6 +34,7 @@ export function App() {
   });
 
   useApplyTheme(settings?.theme);
+  useViewportHeight();
 
   useEffect(() => {
     void seedCategoriesIfEmpty();
@@ -81,8 +83,6 @@ export function App() {
             </AnimatePresence>
           </div>
 
-          <TabBar active={tab} onChange={setTab} />
-
           <ExpenseSheet
             open={expense.open}
             onClose={closeExpense}
@@ -99,6 +99,8 @@ export function App() {
           )}
         </div>
       )}
+
+      {settings?.onboarded && <TabBar active={tab} onChange={setTab} />}
     </>
   );
 }

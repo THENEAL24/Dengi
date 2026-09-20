@@ -18,8 +18,8 @@ type Props = {
 
 export function TabBar({ active, onChange }: Props) {
   return (
-    <nav className="tab-bar z-40 border-0 hairline-t">
-      <div className="mx-auto flex h-[var(--tabbar-height)] max-w-[520px] items-stretch">
+    <nav className="tab-bar hairline-t" aria-label="Навигация">
+      <div className="tab-bar__content mx-auto flex max-w-[520px] items-stretch">
         {tabs.map(({ key, label, Icon }) => {
           const isActive = key === active;
           return (
@@ -42,6 +42,7 @@ export function TabBar({ active, onChange }: Props) {
           );
         })}
       </div>
+      <div className="tab-bar__safe" aria-hidden="true" />
     </nav>
   );
 }

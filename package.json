@@ -9,6 +9,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview --host",
     "serve:iphone": "npm run build && vite preview --host",
+    "preview:https": "vite preview --host",
     "test": "vitest run",
     "test:watch": "vitest",
     "icons": "node scripts/generate-icons.mjs",

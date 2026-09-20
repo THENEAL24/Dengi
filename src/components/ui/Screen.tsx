@@ -51,7 +51,9 @@ export function Screen({ title, children, action, subtitle, withTabBar = true }:
         }}
         style={{
           paddingTop: 'calc(var(--safe-top) + 44px)',
-          paddingBottom: withTabBar ? '28px' : 'calc(var(--safe-bottom) + 28px)',
+          paddingBottom: withTabBar
+            ? 'calc(var(--tabbar-height) + var(--safe-bottom) + 28px)'
+            : 'calc(var(--safe-bottom) + 28px)',
         }}
       >
         <div className="px-[var(--page-gutter)] pt-1 pb-3">

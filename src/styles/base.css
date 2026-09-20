@@ -4,7 +4,7 @@
 
 html {
   height: 100%;
-  background-color: var(--bg);
+  background-color: var(--tabbar-bg);
   -webkit-text-size-adjust: 100%;
 }
 
@@ -24,17 +24,18 @@ body {
 }
 
 #root {
-  height: 100%;
+  height: var(--app-height, 100dvh);
   isolation: isolate;
 }
 
-/* iOS PWA: заполняем экран целиком, включая зону home indicator */
-@supports (height: 100dvh) {
+/* iOS PWA: не даём странице «ездить» — tab bar всегда у физического низа */
+@media (display-mode: standalone) {
   html,
-  body,
-  #root {
-    min-height: 100dvh;
-    min-height: -webkit-fill-available;
+  body {
+    position: fixed;
+    overflow: hidden;
+    width: 100%;
+    height: 100%;
   }
 }
 
@@ -45,6 +46,7 @@ body {
   flex-direction: column;
   overflow: hidden;
   width: 100%;
+  height: var(--app-height, 100dvh);
 }
 
 .app-shell__main {
