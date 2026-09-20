@@ -1,5 +1,5 @@
 import { db, type CarryDecision, type MonthRecord, type SavingsEntry } from './db';
-import { ensureMonth, spentInMonth } from './repo';
+import { ensureMonth, getSettings, spentInMonth } from './repo';
 import { closingBalanceOf, isMonthOver } from '@/lib/budget';
 import { monthEndIso, shiftMonth, todayIso, type MonthId } from '@/lib/date';
 
@@ -20,7 +20,12 @@ export async function findPendingClose(today = todayIso()): Promise<PendingClose
   if (!month) return null;
 
   const spentMinor = await spentInMonth(month.id);
-  return { month, spentMinor, closingBalanceMinor: closingBalanceOf(month, spentMinor) };
+  const settings = await getSettings();
+  return {
+    month,
+    spentMinor,
+    closingBalanceMinor: closingBalanceOf(month, spentMinor, settings),
+  };
 }
 
 /**
@@ -33,7 +38,8 @@ export async function closeMonth(monthId: MonthId, decision: CarryDecision): Pro
   if (!month || month.status === 'closed') return;
 
   const spentMinor = await spentInMonth(monthId);
-  const closing = closingBalanceOf(month, spentMinor);
+  const settings = await getSettings();
+  const closing = closingBalanceOf(month, spentMinor, settings);
   const nextMonthId = shiftMonth(monthId, 1);
 
   // ensureMonth вне транзакции: он сам читает настройки и может создать запись

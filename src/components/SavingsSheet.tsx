@@ -15,6 +15,9 @@ const kindLabels: Record<SavingsKind, string> = {
   rollover: 'Остаток месяца',
   cover: 'Покрытие перерасхода',
   manual: 'Вручную',
+  from_budget: 'Из доступных',
+  to_budget: 'В доступные',
+  auto_daily: 'Автоотложение',
 };
 
 type Props = {
@@ -22,9 +25,20 @@ type Props = {
   onClose: () => void;
   currency: string;
   totalMinor: number;
+  balanceMinor?: number;
+  onTransferFromSavings?: () => void;
+  onTransferToSavings?: () => void;
 };
 
-export function SavingsSheet({ open, onClose, currency, totalMinor }: Props) {
+export function SavingsSheet({
+  open,
+  onClose,
+  currency,
+  totalMinor,
+  balanceMinor,
+  onTransferFromSavings,
+  onTransferToSavings,
+}: Props) {
   const entries = useLiveQuery(() => listSavings(), [], []);
   const [amountOpen, setAmountOpen] = useState(false);
 
@@ -50,9 +64,28 @@ export function SavingsSheet({ open, onClose, currency, totalMinor }: Props) {
             {formatMoney(totalMinor, currency)}
           </p>
 
-          <Button full variant="tinted" className="mt-4" onClick={() => setAmountOpen(true)}>
-            Пополнить или снять
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            {onTransferToSavings && (
+              <Button full variant="tinted" onClick={onTransferToSavings}>
+                Из доступных
+              </Button>
+            )}
+            {onTransferFromSavings && (
+              <Button full variant="plain" onClick={onTransferFromSavings}>
+                В доступные
+              </Button>
+            )}
+          </div>
+
+          <Button full variant="plain" className="mt-2" onClick={() => setAmountOpen(true)}>
+            Пополнить или снять вручную
           </Button>
+
+          {balanceMinor !== undefined && (
+            <p className="mt-2 text-center text-[13px] text-[var(--label-tertiary)]">
+              Доступно сейчас: {formatMoney(balanceMinor, currency, { cents: false, signed: true })}
+            </p>
+          )}
 
           <div className="scroll-y mt-4 max-h-[46dvh]">
             {entries.length === 0 ? (

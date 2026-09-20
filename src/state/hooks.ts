@@ -46,13 +46,15 @@ export type MonthView = {
 
 export function useMonthView(monthId: MonthId, today: string): MonthView | undefined {
   return useLiveQuery(async () => {
-    const month = await db.months.get(monthId);
+    const [month, settings] = await Promise.all([db.months.get(monthId), db.settings.get(1)]);
     if (!month) return { monthId, math: null, spentTodayMinor: 0 };
 
     const [spent, spentToday] = await Promise.all([spentInMonth(monthId), spentOnDate(today)]);
     return {
       monthId,
-      math: computeMonth(month, spent, today),
+      math: computeMonth(month, spent, today, {
+        dailyAccrualMinor: settings?.dailyAccrualMinor,
+      }),
       spentTodayMinor: spentToday,
     };
   }, [monthId, today]);

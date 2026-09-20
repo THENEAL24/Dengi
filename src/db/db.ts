@@ -3,6 +3,9 @@ import type { IsoDate, MonthId } from '@/lib/date';
 
 export type Theme = 'auto' | 'dark' | 'light';
 
+/** Как считается ежедневное автоотложение в копилку */
+export type SavingsStrategy = 'manual' | 'remainder' | 'fixed' | 'smart' | 'goal';
+
 export interface Settings {
   id: 1;
   currency: string;
@@ -12,6 +15,15 @@ export interface Settings {
   monthlyLimitMinor: number;
   /** День, с которого начался учёт — нужен только первому, неполному месяцу */
   startDate: IsoDate;
+  /** Своя дневная норма на «доступно». null — лимит / дней месяца */
+  dailyAccrualMinor?: number | null;
+  savingsStrategy: SavingsStrategy;
+  /** Фиксированная сумма в день для стратегии fixed */
+  fixedDailySavingsMinor?: number;
+  /** Цель накопления для стратегии goal */
+  savingsGoalMinor?: number;
+  /** За сколько месяцев достичь цели (goal) */
+  savingsGoalMonths?: number;
   createdAt: number;
 }
 
@@ -28,6 +40,12 @@ export interface MonthRecord {
   accrualDays: number;
   /** Перенесённый остаток предыдущего месяца, может быть отрицательным */
   openingBalanceMinor: number;
+  /** Пополнения и переводы в/из копилки за текущий месяц */
+  balanceAdjustmentsMinor?: number;
+  /** Своя дневная норма для этого месяца. null — из настроек */
+  dailyAccrualMinor?: number | null;
+  /** До какого дня начислено автоотложение (включительно) */
+  lastAutoSavingsDay?: IsoDate;
   status: MonthStatus;
   closedAt?: number;
   carryDecision?: CarryDecision;
@@ -55,7 +73,14 @@ export interface Category {
   order: number;
 }
 
-export type SavingsKind = 'initial' | 'rollover' | 'cover' | 'manual';
+export type SavingsKind =
+  | 'initial'
+  | 'rollover'
+  | 'cover'
+  | 'manual'
+  | 'from_budget'
+  | 'to_budget'
+  | 'auto_daily';
 
 export interface SavingsEntry {
   id?: number;
@@ -84,6 +109,30 @@ export class DengiDb extends Dexie {
       categories: '++id, order',
       savings: '++id, date, kind, monthId',
     });
+
+    this.version(2)
+      .stores({
+        settings: 'id',
+        months: 'id, status',
+        tx: '++id, monthId, date, categoryId, createdAt',
+        categories: '++id, order',
+        savings: '++id, date, kind, monthId',
+      })
+      .upgrade(async (tx) => {
+        await tx
+          .table('months')
+          .toCollection()
+          .modify((month: MonthRecord) => {
+            month.balanceAdjustmentsMinor ??= 0;
+          });
+        await tx
+          .table('settings')
+          .toCollection()
+          .modify((settings: Settings) => {
+            settings.savingsStrategy ??= 'remainder';
+            settings.savingsGoalMonths ??= 12;
+          });
+      });
   }
 }
 
@@ -108,4 +157,7 @@ export const DEFAULT_SETTINGS: Omit<Settings, 'createdAt' | 'startDate'> = {
   theme: 'auto',
   onboarded: false,
   monthlyLimitMinor: 0,
+  dailyAccrualMinor: null,
+  savingsStrategy: 'remainder',
+  savingsGoalMonths: 12,
 };

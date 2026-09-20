@@ -1,9 +1,17 @@
-import type { MonthRecord } from '@/db/db';
+import type { MonthRecord, Settings } from '@/db/db';
 import { dayOf, daysInMonth, monthEndIso, monthIdOf, type IsoDate } from './date';
 
+export type BudgetOptions = {
+  dailyAccrualMinor?: number | null;
+};
+
 export type MonthMath = {
-  /** Сколько прибавляется к балансу каждый день: лимит / число дней в месяце */
+  /** Базовая дневная норма из лимита: лимит / дней месяца */
+  baseDailyMinor: number;
+  /** Сколько прибавляется к «доступно» каждый день */
   dailyRateMinor: number;
+  /** Сколько уходит в копилку каждый день (из лимита или по стратегии) */
+  dailySavingsMinor: number;
   /** Сколько дней уже начислено, включая сегодняшний */
   accruedDays: number;
   /** Всего дней начисления в месяце (у первого месяца — от даты старта) */
@@ -15,8 +23,9 @@ export type MonthMath = {
   /** Главное число приложения: сколько можно потратить прямо сейчас */
   balanceMinor: number;
   openingBalanceMinor: number;
+  balanceAdjustmentsMinor: number;
   limitMinor: number;
-  /** Сколько всего начислится за этот месяц: у неполного месяца меньше лимита */
+  /** Сколько всего начислится на «доступно» за этот месяц */
   monthAllowanceMinor: number;
   /** 0..1 — какая часть месяца прошла */
   monthProgress: number;
@@ -38,33 +47,67 @@ export function accruedDaysFor(month: MonthRecord, today: IsoDate): number {
   return clamp(dayOf(today) - month.accrualStartDay + 1, 0, month.accrualDays);
 }
 
-/** Начисление за N дней. Считаем от лимита, а не умножением дневной нормы:
- *  иначе за месяц набегает ошибка округления в несколько копеек. */
-function accrualFor(month: MonthRecord, days: number): number {
-  return Math.round((month.limitMinor * days) / daysInMonth(month.id));
+/** Базовая дневная норма из лимита. */
+export function baseDailyFromLimit(month: MonthRecord): number {
+  return Math.round(month.limitMinor / daysInMonth(month.id));
 }
 
-export function computeMonth(month: MonthRecord, spentMinor: number, today: IsoDate): MonthMath {
+/** Эффективная дневная норма на «доступно». */
+export function effectiveDailyAccrual(
+  month: MonthRecord,
+  settings?: Pick<Settings, 'dailyAccrualMinor'> | null,
+): number {
+  const override = month.dailyAccrualMinor ?? settings?.dailyAccrualMinor;
+  if (override != null && override > 0) return override;
+  return baseDailyFromLimit(month);
+}
+
+/** Сколько всего начислится на «доступно» за месяц по выбранной дневной норме. */
+function spendableMonthTotal(month: MonthRecord, dailyMinor: number): number {
+  if (dailyMinor === baseDailyFromLimit(month)) {
+    return Math.round((month.limitMinor * month.accrualDays) / daysInMonth(month.id));
+  }
+  return Math.round(dailyMinor * month.accrualDays);
+}
+
+/** Начисление за N дней по дневной сумме с корректным итогом месяца. */
+function accrualForDaily(month: MonthRecord, days: number, dailyMinor: number): number {
+  if (days <= 0) return 0;
+  const monthTotal = spendableMonthTotal(month, dailyMinor);
+  if (days >= month.accrualDays) return monthTotal;
+  return Math.round((monthTotal * days) / month.accrualDays);
+}
+
+export function computeMonth(
+  month: MonthRecord,
+  spentMinor: number,
+  today: IsoDate,
+  options: BudgetOptions = {},
+): MonthMath {
   const accrualDays = Math.max(1, month.accrualDays);
   const accruedDays = accruedDaysFor(month, today);
+  const adjustments = month.balanceAdjustmentsMinor ?? 0;
 
-  // Дневная норма всегда делит лимит на полный месяц. Старт посреди месяца
-  // не увеличивает норму — он просто уменьшает число дней начисления.
-  const dailyRateMinor = Math.round(month.limitMinor / daysInMonth(month.id));
-  const accruedMinor = accrualFor(month, accruedDays);
-  const monthAllowanceMinor = accrualFor(month, accrualDays);
+  const baseDailyMinor = baseDailyFromLimit(month);
+  const dailyRateMinor = effectiveDailyAccrual(month, {
+    dailyAccrualMinor: options.dailyAccrualMinor,
+  });
+  const dailySavingsMinor = Math.max(0, baseDailyMinor - dailyRateMinor);
 
-  // Баланс растёт от перенесённого остатка: за дни до старта ничего не начисляется.
-  const balanceMinor = month.openingBalanceMinor + accruedMinor - spentMinor;
+  const accruedMinor = accrualForDaily(month, accruedDays, dailyRateMinor);
+  const monthAllowanceMinor = accrualForDaily(month, accrualDays, dailyRateMinor);
+
+  const balanceMinor = month.openingBalanceMinor + adjustments + accruedMinor - spentMinor;
   const remainingDays = accrualDays - accruedDays;
-  const projectedEndMinor = month.openingBalanceMinor + monthAllowanceMinor - spentMinor;
+  const projectedEndMinor = month.openingBalanceMinor + adjustments + monthAllowanceMinor - spentMinor;
 
-  // Сегодняшний день ещё можно «перетратить», поэтому он входит в делитель
   const daysIncludingToday = Math.max(1, remainingDays + (accruedDays > 0 ? 1 : 0));
   const safeDailyMinor = Math.floor(projectedEndMinor / daysIncludingToday);
 
   return {
+    baseDailyMinor,
     dailyRateMinor,
+    dailySavingsMinor,
     accruedDays,
     accrualDays,
     remainingDays,
@@ -72,6 +115,7 @@ export function computeMonth(month: MonthRecord, spentMinor: number, today: IsoD
     spentMinor,
     balanceMinor,
     openingBalanceMinor: month.openingBalanceMinor,
+    balanceAdjustmentsMinor: adjustments,
     limitMinor: month.limitMinor,
     monthAllowanceMinor,
     monthProgress: accruedDays / accrualDays,
@@ -85,10 +129,19 @@ export function isMonthOver(monthId: string, today: IsoDate): boolean {
   return monthEndIso(monthId) < today;
 }
 
-/** Баланс месяца на момент его окончания — с ним закрывается месяц.
- *  У неполного месяца начисляется не весь лимит, а только дни от старта. */
-export function closingBalanceOf(month: MonthRecord, spentMinor: number): number {
-  return month.openingBalanceMinor + accrualFor(month, month.accrualDays) - spentMinor;
+/** Баланс месяца на момент его окончания — с ним закрывается месяц. */
+export function closingBalanceOf(
+  month: MonthRecord,
+  spentMinor: number,
+  settings?: Pick<Settings, 'dailyAccrualMinor'> | null,
+): number {
+  const adjustments = month.balanceAdjustmentsMinor ?? 0;
+  const allowance = accrualForDaily(
+    month,
+    month.accrualDays,
+    effectiveDailyAccrual(month, settings),
+  );
+  return month.openingBalanceMinor + adjustments + allowance - spentMinor;
 }
 
 /** Дневная норма: лимит, разделённый на число дней в этом месяце. */

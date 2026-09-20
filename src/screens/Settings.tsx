@@ -1,8 +1,11 @@
 import { useRef, useState } from 'react';
 import { AmountSheet } from '@/components/AmountSheet';
+import { BalanceSheet } from '@/components/BalanceSheet';
 import { CategoriesSheet } from '@/components/CategoriesSheet';
 import { ConfirmSheet } from '@/components/ConfirmSheet';
+import { DailyAccrualSheet } from '@/components/DailyAccrualSheet';
 import { SavingsSheet } from '@/components/SavingsSheet';
+import { SavingsStrategySheet } from '@/components/SavingsStrategySheet';
 import { List, ListRow } from '@/components/ui/List';
 import { Screen } from '@/components/ui/Screen';
 import { Segmented } from '@/components/ui/Segmented';
@@ -17,9 +20,10 @@ import {
   updateSettings,
   type Snapshot,
 } from '@/db/repo';
-import { useCategories, useCurrentMonthView, useSavingsTotal } from '@/state/hooks';
+import { useCategories, useCurrentMonthView, useMonthRecord, useSavingsTotal } from '@/state/hooks';
 import { cn } from '@/lib/cn';
 import { currentMonthId, monthTitle, todayIso } from '@/lib/date';
+import { strategyLabel } from '@/lib/savings-strategy';
 import { pluralDays } from '@/lib/plural';
 import { currencySymbol, formatMoney } from '@/lib/money';
 import { haptic } from '@/lib/haptics';
@@ -30,11 +34,15 @@ type Props = { settings: SettingsRecord };
 
 export function Settings({ settings }: Props) {
   const view = useCurrentMonthView();
+  const month = useMonthRecord(currentMonthId());
   const savings = useSavingsTotal();
   const categories = useCategories();
   const fileInput = useRef<HTMLInputElement>(null);
 
   const [limitOpen, setLimitOpen] = useState(false);
+  const [dailyOpen, setDailyOpen] = useState(false);
+  const [strategyOpen, setStrategyOpen] = useState(false);
+  const [balanceOpen, setBalanceOpen] = useState(false);
   const [savingsOpen, setSavingsOpen] = useState(false);
   const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [currencyOpen, setCurrencyOpen] = useState(false);
@@ -92,8 +100,28 @@ export function Settings({ settings }: Props) {
           onClick={() => setLimitOpen(true)}
         />
         <ListRow
-          label="Норма в день"
+          label="На «Доступно» в день"
           value={math ? formatMoney(math.dailyRateMinor, currency, { cents: false }) : '—'}
+          chevron
+          onClick={() => setDailyOpen(true)}
+        />
+        {math && math.dailySavingsMinor > 0 && (
+          <ListRow
+            label="В копилку из лимита"
+            value={formatMoney(math.dailySavingsMinor, currency, { cents: false })}
+          />
+        )}
+        <ListRow
+          label="Стратегия откладывания"
+          value={strategyLabel(settings.savingsStrategy)}
+          chevron
+          onClick={() => setStrategyOpen(true)}
+        />
+        <ListRow
+          label="Доступно сейчас"
+          value={math ? formatMoney(math.balanceMinor, currency, { cents: false, signed: true }) : '—'}
+          chevron
+          onClick={() => setBalanceOpen(true)}
         />
         <ListRow
           label="Копилка"
@@ -113,12 +141,18 @@ export function Settings({ settings }: Props) {
       {math && (
         <List
           header={monthTitle(currentMonthId())}
-          footer="Дневная норма — это лимит, поделённый на число дней месяца. Она начисляется с дня старта учёта, поэтому в первый месяц начислится меньше лимита."
+          footer="Пополнения и переводы в/из копилки учитываются в «Доступно» через корректировки месяца."
         >
           <ListRow
             label="Перенос с прошлого месяца"
             value={formatMoney(math.openingBalanceMinor, currency, { cents: false, signed: true })}
           />
+          {math.balanceAdjustmentsMinor !== 0 && (
+            <ListRow
+              label="Корректировки"
+              value={formatMoney(math.balanceAdjustmentsMinor, currency, { cents: false, signed: true })}
+            />
+          )}
           <ListRow label="Дней начисления" value={pluralDays(math.accrualDays)} />
           <ListRow
             label="Начислится за месяц"
@@ -197,11 +231,50 @@ export function Settings({ settings }: Props) {
         onSubmit={(minor) => applyMonthlyLimit(minor)}
       />
 
+      {month && (
+        <>
+          <DailyAccrualSheet
+            open={dailyOpen}
+            onClose={() => setDailyOpen(false)}
+            currency={currency}
+            settings={settings}
+            month={month}
+          />
+          <SavingsStrategySheet
+            open={strategyOpen}
+            onClose={() => setStrategyOpen(false)}
+            currency={currency}
+            settings={settings}
+            month={month}
+            savingsMinor={savings}
+          />
+        </>
+      )}
+
+      {math && (
+        <BalanceSheet
+          open={balanceOpen}
+          onClose={() => setBalanceOpen(false)}
+          currency={currency}
+          balanceMinor={math.balanceMinor}
+          savingsMinor={savings}
+        />
+      )}
+
       <SavingsSheet
         open={savingsOpen}
         onClose={() => setSavingsOpen(false)}
         currency={currency}
         totalMinor={savings}
+        balanceMinor={math?.balanceMinor}
+        onTransferToSavings={() => {
+          setSavingsOpen(false);
+          setBalanceOpen(true);
+        }}
+        onTransferFromSavings={() => {
+          setSavingsOpen(false);
+          setBalanceOpen(true);
+        }}
       />
 
       <CategoriesSheet open={categoriesOpen} onClose={() => setCategoriesOpen(false)} />

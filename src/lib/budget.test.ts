@@ -12,6 +12,7 @@ function month(overrides: Partial<MonthRecord> = {}): MonthRecord {
     accrualStartDay: startDay,
     accrualDays: overrides.accrualDays ?? daysInMonth(id) - startDay + 1,
     openingBalanceMinor: 0,
+    balanceAdjustmentsMinor: 0,
     status: 'open',
     createdAt: 0,
     ...overrides,
@@ -54,12 +55,24 @@ describe('дневная норма', () => {
 });
 
 describe('computeMonth', () => {
-  it('баланс = перенос + начисленное − потраченное', () => {
-    const result = computeMonth(month({ openingBalanceMinor: 500_00 }), 1_200_00, '2026-09-10');
-    // 30 дней, лимит 3000 ₽ → на 10-й день начислено 1000 ₽
+  it('баланс = перенос + корректировки + начисленное − потраченное', () => {
+    const result = computeMonth(
+      month({ openingBalanceMinor: 500_00, balanceAdjustmentsMinor: 200_00 }),
+      1_200_00,
+      '2026-09-10',
+    );
     expect(result.accruedMinor).toBe(1_000_00);
     expect(result.dailyRateMinor).toBe(100_00);
-    expect(result.balanceMinor).toBe(500_00 + 1_000_00 - 1_200_00);
+    expect(result.balanceMinor).toBe(500_00 + 200_00 + 1_000_00 - 1_200_00);
+  });
+
+  it('кастомная дневная норма уменьшает начисление, разницу можно откладывать', () => {
+    const m = month({ dailyAccrualMinor: 90_00 });
+    const result = computeMonth(m, 0, '2026-09-10');
+    expect(result.baseDailyMinor).toBe(100_00);
+    expect(result.dailyRateMinor).toBe(90_00);
+    expect(result.dailySavingsMinor).toBe(10_00);
+    expect(result.accruedMinor).toBe(900_00);
   });
 
   it('старт посреди месяца: доступен только перенос плюс дни с даты старта', () => {

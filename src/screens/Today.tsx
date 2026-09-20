@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { BalanceSheet } from '@/components/BalanceSheet';
 import { Screen } from '@/components/ui/Screen';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { ProgressRing } from '@/components/ui/ProgressRing';
@@ -20,6 +22,7 @@ type Props = {
 };
 
 export function Today({ settings, onAddExpense, onOpenHistory }: Props) {
+  const [balanceOpen, setBalanceOpen] = useState(false);
   const today = useToday();
   const view = useCurrentMonthView();
   const savings = useSavingsTotal();
@@ -54,27 +57,35 @@ export function Today({ settings, onAddExpense, onOpenHistory }: Props) {
       }
     >
       <div className="flex flex-col items-center px-[var(--page-gutter)] pt-2">
-        <ProgressRing progress={spentShare} color={ringColor} size={228}>
-          <div>
-            <p className="text-[13px] font-medium tracking-wide text-[var(--label-secondary)] uppercase">
-              Доступно
-            </p>
-            <p
-              className={cn(
-                'money mt-1 leading-none font-bold whitespace-nowrap',
-                overspent && 'text-[var(--negative)]',
-              )}
-              style={{ fontSize: balanceFontSize(balanceText) }}
-            >
-              {balanceText}
-            </p>
-            {math && (
-              <p className="mt-2 text-[13px] text-[var(--label-secondary)]">
-                +{formatMoney(math.dailyRateMinor, currency, { cents: false })} в день
+        <button type="button" className="pressable" onClick={() => setBalanceOpen(true)}>
+          <ProgressRing progress={spentShare} color={ringColor} size={228}>
+            <div>
+              <p className="text-[13px] font-medium tracking-wide text-[var(--label-secondary)] uppercase">
+                Доступно
               </p>
-            )}
-          </div>
-        </ProgressRing>
+              <p
+                className={cn(
+                  'money mt-1 leading-none font-bold whitespace-nowrap',
+                  overspent && 'text-[var(--negative)]',
+                )}
+                style={{ fontSize: balanceFontSize(balanceText) }}
+              >
+                {balanceText}
+              </p>
+              {math && (
+                <p className="mt-2 text-[13px] text-[var(--label-secondary)]">
+                  +{formatMoney(math.dailyRateMinor, currency, { cents: false })} в день
+                  {math.dailySavingsMinor > 0 && (
+                    <>
+                      {' '}
+                      · {formatMoney(math.dailySavingsMinor, currency, { cents: false })} в копилку
+                    </>
+                  )}
+                </p>
+              )}
+            </div>
+          </ProgressRing>
+        </button>
 
         <button
           type="button"
@@ -118,10 +129,13 @@ export function Today({ settings, onAddExpense, onOpenHistory }: Props) {
           label="Копилка"
           value={formatMoney(savings, currency, { cents: false })}
           hint={
-            math && math.openingBalanceMinor !== 0
-              ? `перенос ${formatMoney(math.openingBalanceMinor, currency, { cents: false, signed: true })}`
-              : undefined
+            math?.dailySavingsMinor
+              ? `+${formatMoney(math.dailySavingsMinor, currency, { cents: false })}/день авто`
+              : math && math.openingBalanceMinor !== 0
+                ? `перенос ${formatMoney(math.openingBalanceMinor, currency, { cents: false, signed: true })}`
+                : undefined
           }
+          onClick={() => setBalanceOpen(true)}
         />
       </div>
 
@@ -179,6 +193,16 @@ export function Today({ settings, onAddExpense, onOpenHistory }: Props) {
           </div>
         )}
       </section>
+
+      {math && (
+        <BalanceSheet
+          open={balanceOpen}
+          onClose={() => setBalanceOpen(false)}
+          currency={currency}
+          balanceMinor={math.balanceMinor}
+          savingsMinor={savings}
+        />
+      )}
     </Screen>
   );
 }
@@ -197,19 +221,31 @@ function StatCard({
   value,
   hint,
   warn,
+  onClick,
 }: {
   label: string;
   value: string;
   hint?: string;
   warn?: boolean;
+  onClick?: () => void;
 }) {
-  return (
-    <GlassCard className="min-h-[92px]">
+  const body = (
+    <>
       <p className="text-[13px] leading-tight text-[var(--label-secondary)]">{label}</p>
       <p className={cn('money mt-1.5 text-[24px] font-bold', warn && 'text-[var(--ios-orange)]')}>
         {value}
       </p>
       {hint && <p className="mt-0.5 text-[12px] text-[var(--label-tertiary)]">{hint}</p>}
-    </GlassCard>
+    </>
   );
+
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className="pressable w-full text-left">
+        <GlassCard className="min-h-[92px]">{body}</GlassCard>
+      </button>
+    );
+  }
+
+  return <GlassCard className="min-h-[92px]">{body}</GlassCard>;
 }
