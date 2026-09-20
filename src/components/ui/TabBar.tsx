@@ -18,10 +18,7 @@ type Props = {
 
 export function TabBar({ active, onChange }: Props) {
   return (
-    <nav
-      className="glass-flat z-40 shrink-0 border-0 hairline-t"
-      style={{ paddingBottom: 'var(--safe-bottom)' }}
-    >
+    <nav className="tab-bar z-40 border-0 hairline-t">
       <div className="mx-auto flex h-[var(--tabbar-height)] max-w-[520px] items-stretch">
         {tabs.map(({ key, label, Icon }) => {
           const isActive = key === active;

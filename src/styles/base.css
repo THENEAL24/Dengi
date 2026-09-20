@@ -28,13 +28,13 @@ body {
   isolation: isolate;
 }
 
-/* iOS PWA: фиксируем оболочку, иначе tab bar «плавает» до первого свайпа */
+/* iOS PWA: заполняем экран целиком, включая зону home indicator */
 @supports (height: 100dvh) {
   html,
   body,
   #root {
-    height: 100dvh;
-    height: 100svh;
+    min-height: 100dvh;
+    min-height: -webkit-fill-available;
   }
 }
 
@@ -45,8 +45,6 @@ body {
   flex-direction: column;
   overflow: hidden;
   width: 100%;
-  max-height: 100dvh;
-  max-height: 100svh;
 }
 
 .app-shell__main {

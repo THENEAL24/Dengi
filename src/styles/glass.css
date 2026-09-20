@@ -91,3 +91,12 @@
   opacity: calc(var(--bg-blob-opacity) * 0.7);
   background: radial-gradient(circle at 50% 50%, var(--bg-blob-c), transparent 62%);
 }
+
+/* Tab bar: непрозрачный фон до физического низа экрана (safe area включительно) */
+.tab-bar {
+  flex-shrink: 0;
+  background: var(--glass-solid-strong);
+  padding-bottom: var(--safe-bottom);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
