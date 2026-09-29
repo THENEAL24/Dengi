@@ -36,9 +36,12 @@ export function Today({ settings, onAddExpense, onOpenHistory }: Props) {
   const currency = settings.currency;
   const categoryById = new Map(categories.map((category) => [category.id, category]));
 
-  const spentShare = math && math.accruedMinor > 0 ? math.spentMinor / math.accruedMinor : 0;
+  const spentTodayMinor = view?.spentTodayMinor ?? 0;
+  const dailyNormMinor = math?.dailyRateMinor ?? 0;
+  const dailyRingProgress =
+    dailyNormMinor > 0 ? spentTodayMinor / dailyNormMinor : spentTodayMinor > 0 ? 1.01 : 0;
+  const dailyOverNorm = dailyNormMinor > 0 && spentTodayMinor > dailyNormMinor;
   const overspent = Boolean(math && math.balanceMinor < 0);
-  const ringColor = overspent ? 'var(--negative)' : 'var(--accent)';
   const balanceText = math ? formatMoney(math.balanceMinor, currency, { cents: false }) : '—';
 
   return (
@@ -61,7 +64,7 @@ export function Today({ settings, onAddExpense, onOpenHistory }: Props) {
     >
       <div className="flex flex-col items-center px-[var(--page-gutter)] pt-2">
         <button type="button" className="pressable" onClick={() => setBalanceOpen(true)}>
-          <ProgressRing progress={spentShare} color={ringColor} size={228}>
+          <ProgressRing progress={dailyRingProgress} size={228}>
             <div>
               <p className="text-[13px] font-medium tracking-wide text-[var(--label-secondary)] uppercase">
                 Доступно
@@ -76,13 +79,15 @@ export function Today({ settings, onAddExpense, onOpenHistory }: Props) {
                 {balanceText}
               </p>
               {math && (
-                <p className="mt-2 text-[13px] text-[var(--label-secondary)]">
-                  +{formatMoney(math.dailyRateMinor, currency, { cents: false })} в день
-                  {math.dailySavingsMinor > 0 && (
-                    <>
-                      {' '}
-                      · {formatMoney(math.dailySavingsMinor, currency, { cents: false })} в копилку
-                    </>
+                <p
+                  className={cn(
+                    'mt-2 text-[13px] text-[var(--label-secondary)]',
+                    dailyOverNorm && 'text-[var(--ios-orange)]',
+                  )}
+                >
+                  {formatMoney(spentTodayMinor, currency, { cents: false })} сегодня
+                  {dailyNormMinor > 0 && (
+                    <> · норма {formatMoney(dailyNormMinor, currency, { cents: false })}</>
                   )}
                 </p>
               )}
