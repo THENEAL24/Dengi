@@ -14,3 +14,7 @@ export function pluralDays(count: number): string {
 export function pluralTx(count: number): string {
   return `${count} ${plural(count, ['трата', 'траты', 'трат'])}`;
 }
+
+export function pluralTopUp(count: number): string {
+  return `${count} ${plural(count, ['зачисление', 'зачисления', 'зачислений'])}`;
+}

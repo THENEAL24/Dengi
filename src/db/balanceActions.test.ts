@@ -59,6 +59,10 @@ describe('переводы и пополнения', () => {
 
     const math = computeMonth(month!, 0, '2026-09-10');
     expect(math.externalTopUpsMinor).toBe(3_500_00);
+
+    const topUps = await db.topUps.where('monthId').equals('2026-09').toArray();
+    expect(topUps).toHaveLength(2);
+    expect(topUps.reduce((sum, entry) => sum + entry.amountMinor, 0)).toBe(3_500_00);
   });
 
   it('не даёт перевести больше доступного', async () => {

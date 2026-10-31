@@ -67,6 +67,16 @@ export interface Tx {
   createdAt: number;
 }
 
+/** Пополнение «доступно» извне (не из копилки) */
+export interface TopUp {
+  id?: number;
+  monthId: MonthId;
+  date: IsoDate;
+  amountMinor: number;
+  note?: string;
+  createdAt: number;
+}
+
 export interface Category {
   id?: number;
   name: string;
@@ -99,6 +109,7 @@ export class DengiDb extends Dexie {
   settings!: EntityTable<Settings, 'id'>;
   months!: EntityTable<MonthRecord, 'id'>;
   tx!: EntityTable<Tx, 'id'>;
+  topUps!: EntityTable<TopUp, 'id'>;
   categories!: EntityTable<Category, 'id'>;
   savings!: EntityTable<SavingsEntry, 'id'>;
 
@@ -151,6 +162,31 @@ export class DengiDb extends Dexie {
           .modify((month: MonthRecord) => {
             month.externalTopUpsMinor ??= 0;
           });
+      });
+
+    this.version(4)
+      .stores({
+        settings: 'id',
+        months: 'id, status',
+        tx: '++id, monthId, date, categoryId, createdAt',
+        topUps: '++id, monthId, date, createdAt',
+        categories: '++id, order',
+        savings: '++id, date, kind, monthId',
+      })
+      .upgrade(async (tx) => {
+        const months = (await tx.table('months').toArray()) as MonthRecord[];
+        for (const month of months) {
+          const external = month.externalTopUpsMinor ?? 0;
+          if (external <= 0) continue;
+          const day = String(month.accrualStartDay).padStart(2, '0');
+          await tx.table('topUps').add({
+            monthId: month.id,
+            date: `${month.id}-${day}`,
+            amountMinor: external,
+            note: 'Ранее учтённые зачисления',
+            createdAt: month.createdAt ?? Date.now(),
+          });
+        }
       });
   }
 }

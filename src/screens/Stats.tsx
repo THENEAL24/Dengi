@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { MonthSwitcher } from '@/components/MonthSwitcher';
 import { GlassCard } from '@/components/ui/GlassCard';
@@ -9,7 +9,8 @@ import { db } from '@/db/db';
 import { listTxByMonth } from '@/db/repo';
 import { computeMonth } from '@/lib/budget';
 import { cn } from '@/lib/cn';
-import { currentMonthId, dayOf, daysInMonth, weekdayShort } from '@/lib/date';
+import { haptic } from '@/lib/haptics';
+import { currentMonthId, dayOf, dayTitle, daysInMonth, weekdayShort, type IsoDate } from '@/lib/date';
 import { pluralDays } from '@/lib/plural';
 import { formatCompact, formatMoney } from '@/lib/money';
 import { useCategories, useMonthIds, useToday } from '@/state/hooks';
@@ -287,11 +288,38 @@ function DayBars({
   dailyRateMinor: number;
   currency: string;
 }) {
+  const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const max = Math.max(dailyRateMinor, ...values, 1);
   const height = 132;
 
+  useEffect(() => {
+    setSelectedDay(null);
+  }, [monthId]);
+
+  const selectedDate: IsoDate | null =
+    selectedDay === null
+      ? null
+      : `${monthId}-${String(selectedDay + 1).padStart(2, '0')}`;
+
   return (
     <div>
+      <div
+        className={cn(
+          'mb-2 min-h-[22px] text-center transition-opacity',
+          selectedDay === null && 'opacity-0',
+        )}
+        aria-live="polite"
+      >
+        {selectedDate && (
+          <>
+            <span className="text-[14px] font-semibold">{dayTitle(selectedDate)}</span>
+            <span className="money ml-2 text-[15px] font-bold">
+              {formatMoney(values[selectedDay!], currency, { cents: false })}
+            </span>
+          </>
+        )}
+      </div>
+
       <div className="relative" style={{ height }}>
         {dailyRateMinor > 0 && (
           <div
@@ -305,22 +333,35 @@ function DayBars({
         )}
 
         <div className="flex h-full items-end gap-[2px]">
-          {values.map((value, index) => (
-            <div
-              key={index}
-              className="flex-1 rounded-t-[3px]"
-              style={{
-                height: `${Math.max(value > 0 ? 3 : 1, (value / max) * height)}px`,
-                backgroundColor:
-                  value === 0
-                    ? 'var(--fill-tertiary)'
-                    : value > dailyRateMinor
-                      ? 'var(--ios-orange)'
-                      : 'var(--accent)',
-              }}
-              title={`${index + 1} · ${formatMoney(value, currency, { cents: false })}`}
-            />
-          ))}
+          {values.map((value, index) => {
+            const selected = selectedDay === index;
+            return (
+              <button
+                key={index}
+                type="button"
+                aria-label={`${index + 1}, ${formatMoney(value, currency, { cents: false })}`}
+                aria-pressed={selected}
+                className="flex min-h-full min-w-0 flex-1 flex-col justify-end rounded-[3px] active:opacity-80"
+                onClick={() => {
+                  haptic('light');
+                  setSelectedDay((prev) => (prev === index ? null : index));
+                }}
+              >
+                <div
+                  className={cn('w-full rounded-t-[3px]', selected && 'ring-2 ring-[var(--label-primary)] ring-offset-1 ring-offset-[var(--surface-solid)]')}
+                  style={{
+                    height: `${Math.max(value > 0 ? 3 : 1, (value / max) * height)}px`,
+                    backgroundColor:
+                      value === 0
+                        ? 'var(--fill-tertiary)'
+                        : value > dailyRateMinor
+                          ? 'var(--ios-orange)'
+                          : 'var(--accent)',
+                  }}
+                />
+              </button>
+            );
+          })}
         </div>
       </div>
 

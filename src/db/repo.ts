@@ -6,6 +6,7 @@ import {
   type MonthRecord,
   type SavingsEntry,
   type Settings,
+  type TopUp,
   type Tx,
 } from './db';
 import {
@@ -136,6 +137,28 @@ export async function deleteTx(id: number): Promise<void> {
   await db.tx.delete(id);
 }
 
+export async function listTopUpsByMonth(monthId: MonthId): Promise<TopUp[]> {
+  const items = await db.topUps.where('monthId').equals(monthId).toArray();
+  return items.sort((a, b) =>
+    a.date === b.date ? b.createdAt - a.createdAt : a.date < b.date ? 1 : -1,
+  );
+}
+
+export async function deleteTopUp(id: number): Promise<void> {
+  await db.transaction('rw', db.topUps, db.months, async () => {
+    const entry = await db.topUps.get(id);
+    if (!entry) return;
+    const month = await db.months.get(entry.monthId);
+    if (month) {
+      await db.months.update(entry.monthId, {
+        balanceAdjustmentsMinor: (month.balanceAdjustmentsMinor ?? 0) - entry.amountMinor,
+        externalTopUpsMinor: Math.max(0, (month.externalTopUpsMinor ?? 0) - entry.amountMinor),
+      });
+    }
+    await db.topUps.delete(id);
+  });
+}
+
 export async function listTxByMonth(monthId: MonthId): Promise<Tx[]> {
   const items = await db.tx.where('monthId').equals(monthId).toArray();
   return items.sort((a, b) => (a.date === b.date ? b.createdAt - a.createdAt : a.date < b.date ? 1 : -1));
@@ -215,30 +238,33 @@ export async function listSavings(): Promise<SavingsEntry[]> {
 
 export type Snapshot = {
   app: 'dengi';
-  version: 1;
+  version: 2;
   exportedAt: string;
   settings: Settings | undefined;
   months: MonthRecord[];
   tx: Tx[];
+  topUps: TopUp[];
   categories: Category[];
   savings: SavingsEntry[];
 };
 
 export async function exportSnapshot(): Promise<Snapshot> {
-  const [settings, months, tx, categories, savings] = await Promise.all([
+  const [settings, months, tx, topUps, categories, savings] = await Promise.all([
     db.settings.get(1),
     db.months.toArray(),
     db.tx.toArray(),
+    db.topUps.toArray(),
     db.categories.toArray(),
     db.savings.toArray(),
   ]);
   return {
     app: 'dengi',
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     settings,
     months,
     tx,
+    topUps,
     categories,
     savings,
   };
@@ -247,28 +273,31 @@ export async function exportSnapshot(): Promise<Snapshot> {
 export async function importSnapshot(snapshot: Snapshot): Promise<void> {
   if (snapshot?.app !== 'dengi') throw new Error('Файл не похож на резервную копию «Деньги»');
 
-  await db.transaction('rw', db.settings, db.months, db.tx, db.categories, db.savings, async () => {
-    await Promise.all([
-      db.settings.clear(),
-      db.months.clear(),
-      db.tx.clear(),
-      db.categories.clear(),
-      db.savings.clear(),
-    ]);
-    if (snapshot.settings) await db.settings.put(snapshot.settings);
-    if (snapshot.months?.length) await db.months.bulkPut(snapshot.months);
-    if (snapshot.tx?.length) await db.tx.bulkPut(snapshot.tx);
-    if (snapshot.categories?.length) await db.categories.bulkPut(snapshot.categories);
-    if (snapshot.savings?.length) await db.savings.bulkPut(snapshot.savings);
+  await db.transaction('rw', [db.settings, db.months, db.tx, db.topUps, db.categories, db.savings], async () => {
+      await Promise.all([
+        db.settings.clear(),
+        db.months.clear(),
+        db.tx.clear(),
+        db.topUps.clear(),
+        db.categories.clear(),
+        db.savings.clear(),
+      ]);
+      if (snapshot.settings) await db.settings.put(snapshot.settings);
+      if (snapshot.months?.length) await db.months.bulkPut(snapshot.months);
+      if (snapshot.tx?.length) await db.tx.bulkPut(snapshot.tx);
+      if (snapshot.topUps?.length) await db.topUps.bulkPut(snapshot.topUps);
+      if (snapshot.categories?.length) await db.categories.bulkPut(snapshot.categories);
+      if (snapshot.savings?.length) await db.savings.bulkPut(snapshot.savings);
   });
 }
 
 export async function resetAll(): Promise<void> {
-  await db.transaction('rw', db.settings, db.months, db.tx, db.categories, db.savings, async () => {
+  await db.transaction('rw', [db.settings, db.months, db.tx, db.topUps, db.categories, db.savings], async () => {
     await Promise.all([
       db.settings.clear(),
       db.months.clear(),
       db.tx.clear(),
+      db.topUps.clear(),
       db.categories.clear(),
       db.savings.clear(),
     ]);

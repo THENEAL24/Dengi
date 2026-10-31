@@ -78,16 +78,25 @@ export async function transferFromSavings(
 }
 
 /** Пополнить «доступно» без затрагивания копилки. */
-export async function topUpAvailable(amountMinor: number, _note?: string, today = todayIso()): Promise<void> {
+export async function topUpAvailable(amountMinor: number, note?: string, today = todayIso()): Promise<void> {
   if (amountMinor <= 0) throw new Error('Сумма должна быть больше нуля');
 
   const monthId = monthIdOf(today);
   const month = await getMonth(monthId);
   if (!month) throw new Error('Месяц не найден');
 
-  await db.months.update(monthId, {
-    balanceAdjustmentsMinor: (month.balanceAdjustmentsMinor ?? 0) + amountMinor,
-    externalTopUpsMinor: (month.externalTopUpsMinor ?? 0) + amountMinor,
+  await db.transaction('rw', db.months, db.topUps, async () => {
+    await db.months.update(monthId, {
+      balanceAdjustmentsMinor: (month.balanceAdjustmentsMinor ?? 0) + amountMinor,
+      externalTopUpsMinor: (month.externalTopUpsMinor ?? 0) + amountMinor,
+    });
+    await db.topUps.add({
+      monthId,
+      date: today,
+      amountMinor,
+      note: note?.trim() || undefined,
+      createdAt: Date.now(),
+    });
   });
 }
 
