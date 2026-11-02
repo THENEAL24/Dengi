@@ -1,6 +1,6 @@
 import { Redis } from '@upstash/redis';
-import { blobDedupKey } from './crypto';
-import type { IngressEnvelopeWire } from './envelope';
+import { blobDedupKey } from './crypto.js';
+import type { IngressEnvelopeWire } from './envelope.js';
 
 let redis: Redis | null = null;
 

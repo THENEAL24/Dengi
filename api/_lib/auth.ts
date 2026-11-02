@@ -1,5 +1,5 @@
-import { hashSha256 } from './crypto';
-import { getDevice, getDeviceIdByHook, getRedis } from './redis';
+import { hashSha256 } from './crypto.js';
+import { getDevice, getDeviceIdByHook, getRedis } from './redis.js';
 
 export async function authorizeSyncSecret(
   syncSecret: string,

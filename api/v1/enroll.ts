@@ -1,7 +1,7 @@
-import { registerSyncIndex } from '../_lib/auth';
-import { hashSha256, randomToken } from '../_lib/crypto';
-import { edgeConfig, empty, json } from '../_lib/http';
-import { saveDevice } from '../_lib/redis';
+import { registerSyncIndex } from '../_lib/auth.js';
+import { hashSha256, randomToken } from '../_lib/crypto.js';
+import { edgeConfig, empty, json } from '../_lib/http.js';
+import { saveDevice } from '../_lib/redis.js';
 
 export const config = edgeConfig;
 

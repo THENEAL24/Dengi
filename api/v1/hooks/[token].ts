@@ -1,7 +1,7 @@
-import { authorizeHook } from '../../_lib/auth';
-import { parseIngressEnvelope, rejectPlaintextBody } from '../../_lib/envelope';
-import { edgeConfig, empty, hookTokenFromPath, json, readJson } from '../../_lib/http';
-import { checkBlobDedup, checkHookRateLimit, pushEvent } from '../../_lib/redis';
+import { authorizeHook } from '../../_lib/auth.js';
+import { parseIngressEnvelope, rejectPlaintextBody } from '../../_lib/envelope.js';
+import { edgeConfig, empty, hookTokenFromPath, json, readJson } from '../../_lib/http.js';
+import { checkBlobDedup, checkHookRateLimit, pushEvent } from '../../_lib/redis.js';
 
 export const config = edgeConfig;
 

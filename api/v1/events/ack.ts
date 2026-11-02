@@ -1,6 +1,6 @@
-import { authorizeSyncSecret } from '../../_lib/auth';
-import { bearerAuth, edgeConfig, empty, json, readJson } from '../../_lib/http';
-import { ackEvents } from '../../_lib/redis';
+import { authorizeSyncSecret } from '../../_lib/auth.js';
+import { bearerAuth, edgeConfig, empty, json, readJson } from '../../_lib/http.js';
+import { ackEvents } from '../../_lib/redis.js';
 
 export const config = edgeConfig;
 

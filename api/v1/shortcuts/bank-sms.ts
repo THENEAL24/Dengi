@@ -1,4 +1,4 @@
-import { edgeConfig, empty, json } from '../../_lib/http';
+import { edgeConfig, empty, json } from '../../_lib/http.js';
 
 export const config = edgeConfig;
 
