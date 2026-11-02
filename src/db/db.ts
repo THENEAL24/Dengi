@@ -24,6 +24,31 @@ export interface Settings {
   savingsGoalMinor?: number;
   /** За сколько месяцев достичь цели (goal) */
   savingsGoalMonths?: number;
+  /** Запись трат из SMS банка (Сбер, отправитель 9-00 / 900) */
+  bankSmsEnabled?: boolean;
+  bankSmsMode?: 'inbox' | 'auto';
+  bankSmsSyncDeviceId?: string;
+  bankSmsWebhookToken?: string;
+  bankSmsSyncSecret?: string;
+  bankSmsIngressKey?: string;
+  bankSmsLastSyncAt?: number;
+  bankSmsLastSyncCursor?: string;
+  createdAt: number;
+}
+
+export type BankInboxStatus = 'pending' | 'accepted' | 'rejected';
+
+export interface BankInboxItem {
+  id?: number;
+  serverEventId: string;
+  contentId: string;
+  kind: 'expense' | 'income' | 'unknown';
+  amountMinor?: number;
+  date: IsoDate;
+  merchant?: string;
+  rawPreview: string;
+  suggestedCategoryId?: number;
+  status: BankInboxStatus;
   createdAt: number;
 }
 
@@ -64,6 +89,7 @@ export interface Tx {
   amountMinor: number;
   categoryId?: number;
   note?: string;
+  bankEventId?: string;
   createdAt: number;
 }
 
@@ -74,6 +100,7 @@ export interface TopUp {
   date: IsoDate;
   amountMinor: number;
   note?: string;
+  bankEventId?: string;
   createdAt: number;
 }
 
@@ -112,6 +139,7 @@ export class DengiDb extends Dexie {
   topUps!: EntityTable<TopUp, 'id'>;
   categories!: EntityTable<Category, 'id'>;
   savings!: EntityTable<SavingsEntry, 'id'>;
+  bankInbox!: EntityTable<BankInboxItem, 'id'>;
 
   constructor() {
     super('dengi');
@@ -188,6 +216,26 @@ export class DengiDb extends Dexie {
           });
         }
       });
+
+    this.version(5)
+      .stores({
+        settings: 'id',
+        months: 'id, status',
+        tx: '++id, monthId, date, categoryId, createdAt, bankEventId',
+        topUps: '++id, monthId, date, createdAt',
+        categories: '++id, order',
+        savings: '++id, date, kind, monthId',
+        bankInbox: '++id, serverEventId, contentId, status, createdAt',
+      })
+      .upgrade(async (tx) => {
+        await tx
+          .table('settings')
+          .toCollection()
+          .modify((settings: Settings) => {
+            settings.bankSmsEnabled ??= false;
+            settings.bankSmsMode ??= 'inbox';
+          });
+      });
   }
 }
 
@@ -215,4 +263,6 @@ export const DEFAULT_SETTINGS: Omit<Settings, 'createdAt' | 'startDate'> = {
   dailyAccrualMinor: null,
   savingsStrategy: 'remainder',
   savingsGoalMonths: 12,
+  bankSmsEnabled: false,
+  bankSmsMode: 'inbox',
 };

@@ -6,6 +6,7 @@ import { TabBar, type TabKey } from '@/components/ui/TabBar';
 import type { Tx } from '@/db/db';
 import { syncAutoSavings } from '@/db/balanceActions';
 import { seedCategoriesIfEmpty } from '@/db/repo';
+import { syncBankSmsIfEnabled } from '@/sync/bankSmsSync';
 import { History } from '@/screens/History';
 import { Onboarding } from '@/screens/Onboarding';
 import { Settings } from '@/screens/Settings';
@@ -42,6 +43,11 @@ export function App() {
     if (!settings?.onboarded) return;
     void syncAutoSavings(today);
   }, [settings?.onboarded, today]);
+
+  useEffect(() => {
+    if (!settings?.bankSmsEnabled) return;
+    void syncBankSmsIfEnabled();
+  }, [settings?.bankSmsEnabled, settings?.bankSmsSyncSecret, today]);
 
   const openNewExpense = () => setExpense({ open: true, editing: null });
   const openEditExpense = (tx: Tx) => setExpense({ open: true, editing: tx });

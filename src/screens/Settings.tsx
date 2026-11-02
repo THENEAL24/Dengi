@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { AmountSheet } from '@/components/AmountSheet';
+import { BankSmsSettingsSection } from '@/components/BankSmsSettingsSection';
 import { BalanceSheet } from '@/components/BalanceSheet';
 import { CategoriesSheet } from '@/components/CategoriesSheet';
 import { ConfirmSheet } from '@/components/ConfirmSheet';
@@ -92,6 +93,10 @@ export function Settings({ settings }: Props) {
 
   return (
     <Screen title="Настройки">
+      <List header="Банк (SMS)">
+        <BankSmsSettingsSection settings={settings} onStatus={setStatus} />
+      </List>
+
       <List header="Бюджет">
         <ListRow
           label="Лимит на месяц"
@@ -198,7 +203,7 @@ export function Settings({ settings }: Props) {
 
       <List
         header="Данные"
-        footer="Все данные хранятся только на этом устройстве. Резервная копия — единственный способ перенести их на другой телефон."
+        footer="Локально на устройстве. Резервная копия без ключей SMS. При SMS-синхронизации на сервере только зашифрованная очередь (Vercel + Upstash)."
       >
         <ListRow label="Сохранить копию" chevron onClick={exportData} />
         <ListRow label="Восстановить из копии" chevron onClick={pickFile} />

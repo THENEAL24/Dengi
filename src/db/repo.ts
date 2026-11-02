@@ -1,14 +1,6 @@
-import {
-  DEFAULT_CATEGORIES,
-  DEFAULT_SETTINGS,
-  db,
-  type Category,
-  type MonthRecord,
-  type SavingsEntry,
-  type Settings,
-  type TopUp,
-  type Tx,
-} from './db';
+import type { BankInboxItem, Category, MonthRecord, SavingsEntry, Settings, TopUp, Tx } from './db';
+import { DEFAULT_CATEGORIES, DEFAULT_SETTINGS, db } from './db';
+import { stripBankSmsSecrets } from './bankSmsActions';
 import {
   currentMonthId,
   daysInMonth,
@@ -107,17 +99,19 @@ export async function addTx(input: {
   amountMinor: number;
   categoryId?: number;
   note?: string;
-}): Promise<void> {
+  bankEventId?: string;
+}): Promise<number> {
   const monthId = monthIdOf(input.date);
   await ensureMonth(monthId);
-  await db.tx.add({
+  return (await db.tx.add({
     monthId,
     date: input.date,
     amountMinor: input.amountMinor,
     categoryId: input.categoryId,
     note: input.note?.trim() || undefined,
+    bankEventId: input.bankEventId,
     createdAt: Date.now(),
-  } as Tx);
+  } as Tx)) as number;
 }
 
 export async function updateTx(
@@ -238,7 +232,7 @@ export async function listSavings(): Promise<SavingsEntry[]> {
 
 export type Snapshot = {
   app: 'dengi';
-  version: 2;
+  version: 2 | 3;
   exportedAt: string;
   settings: Settings | undefined;
   months: MonthRecord[];
@@ -246,34 +240,41 @@ export type Snapshot = {
   topUps: TopUp[];
   categories: Category[];
   savings: SavingsEntry[];
+  bankInbox?: BankInboxItem[];
 };
 
 export async function exportSnapshot(): Promise<Snapshot> {
-  const [settings, months, tx, topUps, categories, savings] = await Promise.all([
+  const [settings, months, tx, topUps, categories, savings, bankInbox] = await Promise.all([
     db.settings.get(1),
     db.months.toArray(),
     db.tx.toArray(),
     db.topUps.toArray(),
     db.categories.toArray(),
     db.savings.toArray(),
+    db.bankInbox.toArray(),
   ]);
+  const safeSettings = settings ? stripBankSmsSecrets(settings) : undefined;
   return {
     app: 'dengi',
-    version: 2,
+    version: 3,
     exportedAt: new Date().toISOString(),
-    settings,
+    settings: safeSettings,
     months,
     tx,
     topUps,
     categories,
     savings,
+    bankInbox,
   };
 }
 
 export async function importSnapshot(snapshot: Snapshot): Promise<void> {
   if (snapshot?.app !== 'dengi') throw new Error('Файл не похож на резервную копию «Деньги»');
 
-  await db.transaction('rw', [db.settings, db.months, db.tx, db.topUps, db.categories, db.savings], async () => {
+  await db.transaction(
+    'rw',
+    [db.settings, db.months, db.tx, db.topUps, db.categories, db.savings, db.bankInbox],
+    async () => {
       await Promise.all([
         db.settings.clear(),
         db.months.clear(),
@@ -281,27 +282,44 @@ export async function importSnapshot(snapshot: Snapshot): Promise<void> {
         db.topUps.clear(),
         db.categories.clear(),
         db.savings.clear(),
+        db.bankInbox.clear(),
       ]);
-      if (snapshot.settings) await db.settings.put(snapshot.settings);
+      if (snapshot.settings) {
+        await db.settings.put({
+          ...snapshot.settings,
+          bankSmsEnabled: false,
+          bankSmsSyncSecret: undefined,
+          bankSmsIngressKey: undefined,
+          bankSmsWebhookToken: undefined,
+          bankSmsSyncDeviceId: undefined,
+        });
+      }
       if (snapshot.months?.length) await db.months.bulkPut(snapshot.months);
       if (snapshot.tx?.length) await db.tx.bulkPut(snapshot.tx);
       if (snapshot.topUps?.length) await db.topUps.bulkPut(snapshot.topUps);
       if (snapshot.categories?.length) await db.categories.bulkPut(snapshot.categories);
       if (snapshot.savings?.length) await db.savings.bulkPut(snapshot.savings);
-  });
+      if (snapshot.bankInbox?.length) await db.bankInbox.bulkPut(snapshot.bankInbox);
+    },
+  );
 }
 
 export async function resetAll(): Promise<void> {
-  await db.transaction('rw', [db.settings, db.months, db.tx, db.topUps, db.categories, db.savings], async () => {
-    await Promise.all([
-      db.settings.clear(),
-      db.months.clear(),
-      db.tx.clear(),
-      db.topUps.clear(),
-      db.categories.clear(),
-      db.savings.clear(),
-    ]);
-  });
+  await db.transaction(
+    'rw',
+    [db.settings, db.months, db.tx, db.topUps, db.categories, db.savings, db.bankInbox],
+    async () => {
+      await Promise.all([
+        db.settings.clear(),
+        db.months.clear(),
+        db.tx.clear(),
+        db.topUps.clear(),
+        db.categories.clear(),
+        db.savings.clear(),
+        db.bankInbox.clear(),
+      ]);
+    },
+  );
 }
 
 /** Первый месяц создаётся вместе с настройками — дальше месяцы появляются по мере надобности. */

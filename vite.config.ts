@@ -52,6 +52,8 @@ export default defineConfig(async () => ({
   resolve: {
     alias: {
       '@': path.resolve(import.meta.dirname, 'src'),
+      '@bank/crypto': path.resolve(import.meta.dirname, 'packages/bank-crypto/index.ts'),
+      '@bank/sms': path.resolve(import.meta.dirname, 'packages/bank-sms/index.ts'),
     },
   },
   server: {
@@ -60,6 +62,6 @@ export default defineConfig(async () => ({
   },
   test: {
     environment: 'node',
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'packages/**/*.test.ts'],
   },
 }));
