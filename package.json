@@ -17,10 +17,10 @@
     "check:pwa": "npm run build && node scripts/check-pwa.mjs"
   },
   "dependencies": {
-    "@upstash/redis": "^1.34.3",
     "dexie": "^4.0.11",
     "dexie-react-hooks": "^1.1.7",
     "motion": "^12.0.6",
+    "redis": "^4.7.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

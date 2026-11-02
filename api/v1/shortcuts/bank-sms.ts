@@ -4,8 +4,6 @@ import {
 } from '../../../packages/bank-shortcut/runScript.js';
 import { json } from '../../_lib/http.js';
 
-export const runtime = 'edge';
-
 const TEST_SMS_SENDER = '+79166353981';
 
 export async function GET(request: Request): Promise<Response> {

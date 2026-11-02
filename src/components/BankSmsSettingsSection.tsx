@@ -44,8 +44,8 @@ export function BankSmsSettingsSection({ settings, onStatus }: Props) {
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : '';
-      if (msg === 'missing_upstash_env') {
-        onStatus('Нет Upstash на Vercel. Подключите Integration и redeploy.');
+      if (msg === 'missing_redis_url' || msg === 'missing_upstash_env') {
+        onStatus('Нет REDIS_URL на Vercel. Storage → Redis → Connect к проекту dengi.');
       } else if (msg === 'timeout') {
         onStatus('Таймаут API. Проверьте интернет или обновите PWA после деплоя.');
       } else if (msg.startsWith('HTTP 5')) {

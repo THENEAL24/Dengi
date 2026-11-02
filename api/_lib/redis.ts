@@ -1,56 +1,36 @@
-import { Redis } from '@upstash/redis/cloudflare';
+import { createClient, type RedisClientType } from 'redis';
 import { blobDedupKey } from './crypto.js';
 import type { IngressEnvelopeWire } from './envelope.js';
 
-let redis: Redis | null = null;
+let client: RedisClientType | null = null;
+let connecting: Promise<RedisClientType> | null = null;
 
-const UPSTASH_TIMEOUT_MS = 8_000;
+async function getClient(): Promise<RedisClientType> {
+  if (client?.isOpen) return client;
+  if (connecting) return connecting;
 
-/** Vercel Redis often injects only REDIS_URL=rediss://default:TOKEN@host:6379 (Upstash-compatible). */
-function credentialsFromRedisUrl(redisUrl: string): { url: string; token: string } | null {
-  try {
-    const u = new URL(redisUrl.trim());
-    const token = decodeURIComponent(u.password || u.username || '');
-    if (!u.hostname || !token) return null;
-    return { url: `https://${u.hostname}`, token };
-  } catch {
-    return null;
-  }
-}
-
-function redisRestCredentials(): { url: string; token: string } | null {
-  const url =
-    process.env.UPSTASH_REDIS_REST_URL ??
-    process.env.KV_REST_API_URL ??
-    process.env.REDIS_REST_API_URL;
-  const token =
-    process.env.UPSTASH_REDIS_REST_TOKEN ??
-    process.env.KV_REST_API_TOKEN ??
-    process.env.REDIS_REST_API_TOKEN;
-  if (url?.trim() && token?.trim()) {
-    return { url: url.trim(), token: token.trim() };
-  }
-
-  const fromRedisUrl = process.env.REDIS_URL ? credentialsFromRedisUrl(process.env.REDIS_URL) : null;
-  if (fromRedisUrl) return fromRedisUrl;
-
-  return null;
-}
-
-export function getRedis(): Redis {
-  if (!redis) {
-    const creds = redisRestCredentials();
-    if (!creds) {
-      throw new Error('missing_upstash_env');
+  connecting = (async () => {
+    const url = process.env.REDIS_URL?.trim();
+    if (!url) {
+      throw new Error('missing_redis_url');
     }
-    redis = new Redis({
-      url: creds.url,
-      token: creds.token,
-      retry: { retries: 0 },
-      signal: () => AbortSignal.timeout(UPSTASH_TIMEOUT_MS),
+    const c = createClient({
+      url,
+      socket: { connectTimeout: 8_000, reconnectStrategy: () => false },
     });
+    c.on('error', () => {
+      /* logged by caller */
+    });
+    await c.connect();
+    client = c;
+    return c;
+  })();
+
+  try {
+    return await connecting;
+  } finally {
+    connecting = null;
   }
-  return redis;
 }
 
 export const EVENT_TTL_SEC = 7 * 24 * 3600;
@@ -60,35 +40,51 @@ export const HOOK_RATE_LIMIT = 60;
 export type StoredEvent = IngressEnvelopeWire & { id: string; ts: number };
 
 export async function getDeviceIdByHook(token: string): Promise<string | null> {
-  const r = await getRedis().get<string>(`hook:${token}`);
-  return r ?? null;
+  const r = await getClient();
+  return r.get(`hook:${token}`);
 }
 
 export async function getDevice(deviceId: string) {
-  return getRedis().hgetall<{ syncSecretHash: string; webhookToken: string; revoked: string }>(
-    `device:${deviceId}`,
-  );
+  const r = await getClient();
+  return r.hGetAll(`device:${deviceId}`) as Promise<{
+    syncSecretHash: string;
+    webhookToken: string;
+    revoked: string;
+  }>;
 }
 
 export async function saveDevice(deviceId: string, data: Record<string, string>) {
-  await getRedis().hset(`device:${deviceId}`, data);
-  await getRedis().set(`hook:${data.webhookToken}`, deviceId);
+  const r = await getClient();
+  await r.hSet(`device:${deviceId}`, data);
+  await r.set(`hook:${data.webhookToken}`, deviceId);
 }
 
 export async function revokeDevice(deviceId: string) {
   const device = await getDevice(deviceId);
-  if (device?.webhookToken) await getRedis().del(`hook:${device.webhookToken}`);
-  await getRedis().hset(`device:${deviceId}`, { revoked: '1' });
-  await getRedis().del(`events:${deviceId}`);
+  const r = await getClient();
+  if (device?.webhookToken) await r.del(`hook:${device.webhookToken}`);
+  await r.hSet(`device:${deviceId}`, { revoked: '1' });
+  await r.del(`events:${deviceId}`);
+}
+
+export async function redisGet(key: string): Promise<string | null> {
+  const r = await getClient();
+  return r.get(key);
+}
+
+export async function redisSet(key: string, value: string, ttlSec?: number): Promise<void> {
+  const r = await getClient();
+  if (ttlSec) await r.set(key, value, { EX: ttlSec });
+  else await r.set(key, value);
 }
 
 export async function pushEvent(deviceId: string, envelope: IngressEnvelopeWire): Promise<string> {
   const id = crypto.randomUUID().replace(/-/g, '').slice(0, 24);
   const item: StoredEvent = { ...envelope, id, ts: Date.now() };
   const key = `events:${deviceId}`;
-  const r = getRedis();
-  await r.lpush(key, JSON.stringify(item));
-  await r.ltrim(key, 0, MAX_EVENTS - 1);
+  const r = await getClient();
+  await r.lPush(key, JSON.stringify(item));
+  await r.lTrim(key, 0, MAX_EVENTS - 1);
   await r.expire(key, EVENT_TTL_SEC);
   return id;
 }
@@ -99,7 +95,8 @@ export async function listEvents(
 ): Promise<{ events: StoredEvent[]; nextCursor: number | null }> {
   const key = `events:${deviceId}`;
   const end = cursor + 49;
-  const raw = await getRedis().lrange<string>(key, cursor, end);
+  const r = await getClient();
+  const raw = await r.lRange(key, cursor, end);
   const events = raw
     .map((s) => {
       try {
@@ -116,7 +113,8 @@ export async function listEvents(
 export async function ackEvents(deviceId: string, ids: string[]) {
   if (ids.length === 0) return;
   const key = `events:${deviceId}`;
-  const all = await getRedis().lrange<string>(key, 0, MAX_EVENTS - 1);
+  const r = await getClient();
+  const all = await r.lRange(key, 0, MAX_EVENTS - 1);
   const keep = all.filter((s) => {
     try {
       const e = JSON.parse(s) as StoredEvent;
@@ -125,10 +123,9 @@ export async function ackEvents(deviceId: string, ids: string[]) {
       return true;
     }
   });
-  const r = getRedis();
   await r.del(key);
   if (keep.length > 0) {
-    await r.rpush(key, ...keep);
+    await r.rPush(key, keep);
     await r.expire(key, EVENT_TTL_SEC);
   }
 }
@@ -136,8 +133,9 @@ export async function ackEvents(deviceId: string, ids: string[]) {
 export async function checkHookRateLimit(token: string): Promise<boolean> {
   const hour = new Date().toISOString().slice(0, 13);
   const key = `rl:hook:${token}:${hour}`;
-  const n = await getRedis().incr(key);
-  if (n === 1) await getRedis().expire(key, 3600);
+  const r = await getClient();
+  const n = await r.incr(key);
+  if (n === 1) await r.expire(key, 3600);
   return n <= HOOK_RATE_LIMIT;
 }
 
@@ -145,6 +143,7 @@ export async function checkBlobDedup(deviceId: string, iv: string, ct: string): 
   void deviceId;
   const h = await blobDedupKey(iv, ct);
   const key = `dedup:blob:${h}`;
-  const ok = await getRedis().set(key, '1', { nx: true, ex: EVENT_TTL_SEC });
+  const r = await getClient();
+  const ok = await r.set(key, '1', { NX: true, EX: EVENT_TTL_SEC });
   return ok === 'OK';
 }

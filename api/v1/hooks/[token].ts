@@ -3,8 +3,6 @@ import { parseIngressEnvelope, rejectPlaintextBody } from '../../_lib/envelope.j
 import { empty, hookTokenFromPath, json, readJson } from '../../_lib/http.js';
 import { checkBlobDedup, checkHookRateLimit, pushEvent } from '../../_lib/redis.js';
 
-export const runtime = 'edge';
-
 export async function POST(request: Request): Promise<Response> {
   const token = hookTokenFromPath(new URL(request.url));
   if (!token) return empty(404);

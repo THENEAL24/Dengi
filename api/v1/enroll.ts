@@ -3,8 +3,6 @@ import { hashSha256, randomToken } from '../_lib/crypto.js';
 import { json } from '../_lib/http.js';
 import { saveDevice } from '../_lib/redis.js';
 
-export const runtime = 'edge';
-
 export async function POST(): Promise<Response> {
   try {
     const deviceId = randomToken('d');
@@ -23,9 +21,9 @@ export async function POST(): Promise<Response> {
     return json({ deviceId, webhookToken, syncSecret });
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'unknown';
-    if (msg === 'missing_upstash_env') {
-      return json({ error: 'storage_unavailable', reason: 'missing_upstash_env' }, 503);
+    if (msg === 'missing_redis_url') {
+      return json({ error: 'storage_unavailable', reason: 'missing_redis_url' }, 503);
     }
-    return json({ error: 'storage_unavailable' }, 503);
+    return json({ error: 'storage_unavailable', reason: 'redis_error' }, 503);
   }
 }
