@@ -45,9 +45,22 @@ export function App() {
   }, [settings?.onboarded, today]);
 
   useEffect(() => {
-    if (!settings?.bankSmsEnabled) return;
-    void syncBankSmsIfEnabled();
-  }, [settings?.bankSmsEnabled, settings?.bankSmsSyncSecret, today]);
+    if (!settings?.bankSmsEnabled || !settings.bankSmsSyncSecret) return;
+
+    const run = () => void syncBankSmsIfEnabled();
+    run();
+
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') run();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    const timer = window.setInterval(run, 45_000);
+
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.clearInterval(timer);
+    };
+  }, [settings?.bankSmsEnabled, settings?.bankSmsSyncSecret]);
 
   const openNewExpense = () => setExpense({ open: true, editing: null });
   const openEditExpense = (tx: Tx) => setExpense({ open: true, editing: tx });

@@ -34,7 +34,12 @@ export function BankSmsSettingsSection({ settings, onStatus }: Props) {
         haptic('light');
       } else {
         await enableBankSmsSync();
-        onStatus('Подключено. Установите команду и автоматизацию.');
+        const sync = await syncBankSmsIfEnabled();
+        onStatus(
+          sync.error
+            ? `Подключено, но sync: ${sync.error}. Установите команду.`
+            : 'Подключено. Скопируйте код JS и настройте автоматизацию.',
+        );
         haptic('success');
         setSetupOpen(true);
       }
@@ -90,7 +95,13 @@ export function BankSmsSettingsSection({ settings, onStatus }: Props) {
             chevron
             onClick={async () => {
               const r = await syncBankSmsIfEnabled();
-              onStatus(r.error ? 'Ошибка синхронизации' : `Обработано: ${r.processed}`);
+              onStatus(
+                r.error
+                  ? `Sync: ${r.error}`
+                  : r.processed === 0
+                    ? 'Новых событий нет (SMS ещё не дошли или команда не настроена)'
+                    : `Обработано событий: ${r.processed}`,
+              );
             }}
           />
           <ListRow
@@ -99,10 +110,11 @@ export function BankSmsSettingsSection({ settings, onStatus }: Props) {
             onClick={async () => {
               try {
                 await testBankSmsChannel(settings);
-                onStatus('Тест отправлен. Проверьте входящие или траты.');
+                onStatus('Тест OK. Смотрите «Входящие» или траты (режим «Сразу»).');
                 haptic('success');
-              } catch {
-                onStatus('Тест не прошёл');
+              } catch (e) {
+                const msg = e instanceof Error ? e.message : 'unknown';
+                onStatus(`Тест: ${msg}`);
               }
             }}
           />

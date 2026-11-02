@@ -67,7 +67,7 @@ export async function apiFetchEvents(
 ): Promise<{ events: ServerEvent[]; nextCursor: string | null }> {
   const q = cursor ? `?cursor=${encodeURIComponent(cursor)}` : '';
   const res = await syncFetch(`/events${q}`, { method: 'GET', syncSecret });
-  if (!res.ok) throw new Error('events failed');
+  if (!res.ok) throw new Error(`events HTTP ${res.status}`);
   return res.json() as Promise<{ events: ServerEvent[]; nextCursor: string | null }>;
 }
 
@@ -86,16 +86,36 @@ export async function apiPostHook(webhookToken: string, body: unknown): Promise<
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error('hook failed');
+  if (!res.ok) {
+    let detail = `hook HTTP ${res.status}`;
+    try {
+      const body = (await res.json()) as { error?: string };
+      if (body.error) detail = body.error;
+    } catch {
+      /* ignore */
+    }
+    throw new Error(detail);
+  }
 }
 
 export function webhookUrl(webhookToken: string): string {
   return syncApiUrl(`/hooks/${webhookToken}`);
 }
 
+function bankSmsShortcutQuery(webhookToken: string, ingressKey: string, format?: string): string {
+  const q = new URLSearchParams({
+    token: webhookToken,
+    key: ingressKey,
+  });
+  if (format) q.set('format', format);
+  return `/shortcuts/bank-sms?${q.toString()}`;
+}
+
 export function shortcutImportUrl(webhookToken: string, ingressKey: string): string {
-  const setup = syncApiUrl(
-    `/shortcuts/bank-sms?token=${encodeURIComponent(webhookToken)}&key=${encodeURIComponent(ingressKey)}`,
-  );
+  const setup = syncApiUrl(bankSmsShortcutQuery(webhookToken, ingressKey));
   return `shortcuts://import-shortcut?url=${encodeURIComponent(setup)}`;
+}
+
+export function bankSmsRunScriptUrl(webhookToken: string, ingressKey: string): string {
+  return syncApiUrl(bankSmsShortcutQuery(webhookToken, ingressKey, 'js'));
 }

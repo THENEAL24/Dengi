@@ -51,8 +51,9 @@ export async function syncBankSmsIfEnabled(): Promise<{ processed: number; error
     });
 
     return { processed: total };
-  } catch {
-    return { processed: 0, error: 'sync_failed' };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'sync_failed';
+    return { processed: 0, error: msg };
   }
 }
 
