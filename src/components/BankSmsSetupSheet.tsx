@@ -33,9 +33,15 @@ export function BankSmsSetupSheet({ open, onClose, settings }: Props) {
 
   const copyRunScript = async () => {
     if (!token || !key) return;
-    const res = await fetch(bankSmsRunScriptUrl(token, key));
-    if (!res.ok) throw new Error('script fetch failed');
-    await copy(await res.text());
+    const ac = new AbortController();
+    const timer = window.setTimeout(() => ac.abort(), 25_000);
+    try {
+      const res = await fetch(bankSmsRunScriptUrl(token, key), { signal: ac.signal });
+      if (!res.ok) throw new Error('script fetch failed');
+      await copy(await res.text());
+    } finally {
+      window.clearTimeout(timer);
+    }
   };
 
   return (

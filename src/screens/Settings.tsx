@@ -97,6 +97,12 @@ export function Settings({ settings }: Props) {
         <BankSmsSettingsSection settings={settings} onStatus={setStatus} />
       </List>
 
+      {status && (
+        <p className="px-[var(--page-gutter)] pt-1 text-center text-[13px] text-[var(--label-secondary)]">
+          {status}
+        </p>
+      )}
+
       <List header="Бюджет">
         <ListRow
           label="Лимит на месяц"
@@ -209,12 +215,6 @@ export function Settings({ settings }: Props) {
         <ListRow label="Восстановить из копии" chevron onClick={pickFile} />
         <ListRow label="Удалить все данные" destructive onClick={() => setResetOpen(true)} last />
       </List>
-
-      {status && (
-        <p className="px-[var(--page-gutter)] pt-3 text-center text-[13px] text-[var(--label-secondary)]">
-          {status}
-        </p>
-      )}
 
       <p className="px-[var(--page-gutter)] pt-4 text-center text-[13px] text-[var(--label-tertiary)]">
         Деньги · версия 1.0

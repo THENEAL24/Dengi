@@ -1,4 +1,5 @@
 const DEFAULT_BASE = '/api/v1';
+const SYNC_FETCH_TIMEOUT_MS = 25_000;
 
 export function syncApiBase(): string {
   const fromEnv = import.meta.env.VITE_SYNC_API_BASE as string | undefined;
@@ -16,13 +17,24 @@ export function syncApiUrl(path: string): string {
 
 export async function syncFetch(
   path: string,
-  init: RequestInit & { syncSecret?: string } = {},
+  init: RequestInit & { syncSecret?: string; timeoutMs?: number } = {},
 ): Promise<Response> {
-  const { syncSecret, headers, ...rest } = init;
+  const { syncSecret, headers, timeoutMs = SYNC_FETCH_TIMEOUT_MS, ...rest } = init;
+  const ac = new AbortController();
+  const timer = window.setTimeout(() => ac.abort(), timeoutMs);
   const h = new Headers(headers);
   if (syncSecret) h.set('Authorization', `Bearer ${syncSecret}`);
   h.set('Content-Type', 'application/json');
-  return fetch(syncApiUrl(path), { ...rest, headers: h });
+  try {
+    return await fetch(syncApiUrl(path), { ...rest, headers: h, signal: ac.signal });
+  } catch (e) {
+    if (e instanceof DOMException && e.name === 'AbortError') {
+      throw new Error('timeout');
+    }
+    throw e;
+  } finally {
+    window.clearTimeout(timer);
+  }
 }
 
 export type EnrollResponse = {
@@ -81,9 +93,8 @@ export async function apiAckEvents(syncSecret: string, ids: string[]): Promise<v
 }
 
 export async function apiPostHook(webhookToken: string, body: unknown): Promise<void> {
-  const res = await fetch(syncApiUrl(`/hooks/${webhookToken}`), {
+  const res = await syncFetch(`/hooks/${webhookToken}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
   if (!res.ok) {

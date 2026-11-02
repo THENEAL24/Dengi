@@ -27,6 +27,7 @@ export function BankSmsSettingsSection({ settings, onStatus }: Props) {
 
   const toggle = async () => {
     setBusy(true);
+    onStatus('Подключение к серверу…');
     try {
       if (enabled) {
         await disableBankSmsSync(settings);
@@ -34,23 +35,23 @@ export function BankSmsSettingsSection({ settings, onStatus }: Props) {
         haptic('light');
       } else {
         await enableBankSmsSync();
-        const sync = await syncBankSmsIfEnabled();
-        onStatus(
-          sync.error
-            ? `Подключено, но sync: ${sync.error}. Установите команду.`
-            : 'Подключено. Скопируйте код JS и настройте автоматизацию.',
-        );
         haptic('success');
         setSetupOpen(true);
+        onStatus('Подключено. Настройте команду в открывшейся инструкции.');
+        void syncBankSmsIfEnabled().then((sync) => {
+          if (sync.error) onStatus(`Sync: ${sync.error}`);
+        });
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : '';
       if (msg === 'missing_upstash_env') {
         onStatus('Нет Upstash на Vercel. Подключите Integration и redeploy.');
+      } else if (msg === 'timeout') {
+        onStatus('Таймаут API. Проверьте интернет или обновите PWA после деплоя.');
       } else if (msg.startsWith('HTTP 5')) {
         onStatus(`API: ${msg}. Проверьте деплой и логи Vercel.`);
       } else {
-        onStatus('Не удалось подключить. Проверьте сеть и API.');
+        onStatus(`Не удалось подключить: ${msg || 'сеть'}`);
       }
     } finally {
       setBusy(false);
