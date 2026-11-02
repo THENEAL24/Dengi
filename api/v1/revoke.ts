@@ -1,19 +1,21 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { authorizeSyncSecret } from '../_lib/auth';
+import { bearerAuth, edgeConfig, empty, json } from '../_lib/http';
 import { revokeDevice } from '../_lib/redis';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== 'POST') return res.status(405).end();
-  const syncSecret = req.headers.authorization?.replace(/^Bearer\s+/i, '').trim();
-  if (!syncSecret) return res.status(401).end();
+export const config = edgeConfig;
+
+export default async function handler(request: Request): Promise<Response> {
+  if (request.method !== 'POST') return empty(405);
+  const syncSecret = bearerAuth(request);
+  if (!syncSecret) return empty(401);
 
   const auth = await authorizeSyncSecret(syncSecret);
-  if (!auth) return res.status(401).end();
+  if (!auth) return empty(401);
 
   try {
     await revokeDevice(auth.deviceId);
-    return res.status(200).json({ ok: true });
+    return json({ ok: true });
   } catch {
-    return res.status(503).end();
+    return empty(503);
   }
 }

@@ -1,13 +1,14 @@
-import { createHash, randomBytes } from 'node:crypto';
-
 export function randomToken(prefix: string): string {
-  return `${prefix}_${randomBytes(18).toString('hex')}`;
+  const bytes = crypto.getRandomValues(new Uint8Array(18));
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+  return `${prefix}_${hex}`;
 }
 
-export function hashSyncSecret(secret: string): string {
-  return createHash('sha256').update(secret).digest('hex');
+export async function hashSha256(input: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input));
+  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-export function blobDedupKey(deviceId: string, iv: string, ct: string): string {
-  return createHash('sha256').update(`${iv}:${ct}`).digest('hex');
+export async function blobDedupKey(iv: string, ct: string): Promise<string> {
+  return hashSha256(`${iv}:${ct}`);
 }

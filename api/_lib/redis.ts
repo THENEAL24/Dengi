@@ -1,4 +1,3 @@
-import { randomBytes } from 'node:crypto';
 import { Redis } from '@upstash/redis';
 import { blobDedupKey } from './crypto';
 import type { IngressEnvelopeWire } from './envelope';
@@ -6,7 +5,14 @@ import type { IngressEnvelopeWire } from './envelope';
 let redis: Redis | null = null;
 
 export function getRedis(): Redis {
-  if (!redis) redis = Redis.fromEnv();
+  if (!redis) {
+    const url = process.env.UPSTASH_REDIS_REST_URL;
+    const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+    if (!url || !token) {
+      throw new Error('missing_upstash_env');
+    }
+    redis = new Redis({ url, token });
+  }
   return redis;
 }
 
@@ -40,7 +46,7 @@ export async function revokeDevice(deviceId: string) {
 }
 
 export async function pushEvent(deviceId: string, envelope: IngressEnvelopeWire): Promise<string> {
-  const id = randomBytes(12).toString('hex');
+  const id = crypto.randomUUID().replace(/-/g, '').slice(0, 24);
   const item: StoredEvent = { ...envelope, id, ts: Date.now() };
   const key = `events:${deviceId}`;
   const r = getRedis();
@@ -99,8 +105,9 @@ export async function checkHookRateLimit(token: string): Promise<boolean> {
 }
 
 export async function checkBlobDedup(deviceId: string, iv: string, ct: string): Promise<boolean> {
-  const h = blobDedupKey(deviceId, iv, ct);
-  const key = `dedup:blob:${deviceId}:${h}`;
+  void deviceId;
+  const h = await blobDedupKey(iv, ct);
+  const key = `dedup:blob:${h}`;
   const ok = await getRedis().set(key, '1', { nx: true, ex: EVENT_TTL_SEC });
   return ok === 'OK';
 }

@@ -33,7 +33,17 @@ export type EnrollResponse = {
 
 export async function apiEnroll(): Promise<EnrollResponse> {
   const res = await syncFetch('/enroll', { method: 'POST', body: '{}' });
-  if (!res.ok) throw new Error('enroll failed');
+  if (!res.ok) {
+    let reason = `HTTP ${res.status}`;
+    try {
+      const body = (await res.json()) as { error?: string; reason?: string };
+      if (body.reason) reason = body.reason;
+      else if (body.error) reason = body.error;
+    } catch {
+      reason = `HTTP ${res.status}`;
+    }
+    throw new Error(reason);
+  }
   return res.json() as Promise<EnrollResponse>;
 }
 

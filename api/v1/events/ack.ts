@@ -1,23 +1,32 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { authorizeSyncSecret } from '../_lib/auth';
-import { ackEvents } from '../_lib/redis';
+import { authorizeSyncSecret } from '../../_lib/auth';
+import { bearerAuth, edgeConfig, empty, json, readJson } from '../../_lib/http';
+import { ackEvents } from '../../_lib/redis';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== 'POST') return res.status(405).end();
-  const syncSecret = req.headers.authorization?.replace(/^Bearer\s+/i, '').trim();
-  if (!syncSecret) return res.status(401).end();
+export const config = edgeConfig;
+
+export default async function handler(request: Request): Promise<Response> {
+  if (request.method !== 'POST') return empty(405);
+  const syncSecret = bearerAuth(request);
+  if (!syncSecret) return empty(401);
 
   const auth = await authorizeSyncSecret(syncSecret);
-  if (!auth) return res.status(401).end();
+  if (!auth) return empty(401);
 
-  const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-  const ids = Array.isArray(body?.ids) ? (body.ids as string[]) : [];
-  if (ids.length === 0) return res.status(400).end();
+  let body: unknown;
+  try {
+    body = await readJson(request);
+  } catch {
+    return empty(400);
+  }
+  const ids = Array.isArray((body as { ids?: unknown })?.ids)
+    ? ((body as { ids: string[] }).ids as string[])
+    : [];
+  if (ids.length === 0) return empty(400);
 
   try {
     await ackEvents(auth.deviceId, ids.slice(0, 100));
-    return res.status(200).json({ ok: true });
+    return json({ ok: true });
   } catch {
-    return res.status(503).end();
+    return empty(503);
   }
 }

@@ -1,5 +1,6 @@
 import type { IngressEnvelope } from '@bank/crypto';
 import { decryptIngressPayload, encryptIngressPayload } from '@bank/crypto';
+import { TEST_SMS_SENDER } from '@bank/sms';
 import {
   addBankInboxItem,
   applyBankExpense,
@@ -117,17 +118,21 @@ async function processServerEvent(
   return true;
 }
 
-export async function testBankSmsChannel(settings: {
-  bankSmsWebhookToken?: string;
-  bankSmsIngressKey?: string;
-}): Promise<void> {
+export async function testBankSmsChannel(
+  settings: {
+    bankSmsWebhookToken?: string;
+    bankSmsIngressKey?: string;
+  },
+  options?: { sender?: string },
+): Promise<void> {
   if (!settings.bankSmsWebhookToken || !settings.bankSmsIngressKey) {
     throw new Error('not configured');
   }
+  const sender = options?.sender ?? TEST_SMS_SENDER;
   const envelope = await encryptIngressPayload(settings.bankSmsIngressKey, {
     v: 1,
     text: 'Счёт карты VISA3921 12:00 Покупка 1р TEST Баланс: 1р',
-    sender: '9-00',
+    sender,
     receivedAt: new Date().toISOString(),
   });
   await apiPostHook(settings.bankSmsWebhookToken, envelope);

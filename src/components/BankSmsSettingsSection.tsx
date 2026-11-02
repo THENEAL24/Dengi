@@ -7,6 +7,7 @@ import type { Settings } from '@/db/db';
 import { disableBankSmsSync, enableBankSmsSync, rotateBankSmsKeys } from '@/db/bankSmsEnroll';
 import { updateSettings } from '@/db/repo';
 import { usePendingBankInboxCount } from '@/state/bankSmsHooks';
+import { allowedSmsSenderHint, TEST_SMS_SENDER } from '@bank/sms';
 import { syncBankSmsIfEnabled, testBankSmsChannel } from '@/sync/bankSmsSync';
 import { haptic } from '@/lib/haptics';
 
@@ -37,8 +38,15 @@ export function BankSmsSettingsSection({ settings, onStatus }: Props) {
         haptic('success');
         setSetupOpen(true);
       }
-    } catch {
-      onStatus('Не удалось подключить. Проверьте сеть и API.');
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '';
+      if (msg === 'missing_upstash_env') {
+        onStatus('Нет Upstash на Vercel. Подключите Integration и redeploy.');
+      } else if (msg.startsWith('HTTP 5')) {
+        onStatus(`API: ${msg}. Проверьте деплой и логи Vercel.`);
+      } else {
+        onStatus('Не удалось подключить. Проверьте сеть и API.');
+      }
     } finally {
       setBusy(false);
     }
@@ -48,8 +56,8 @@ export function BankSmsSettingsSection({ settings, onStatus }: Props) {
     <>
       <ListRow
         label="Запись из SMS (Сбер 9-00)"
-        value={enabled ? 'Вкл' : 'Выкл'}
-        chevron={false}
+        value={busy ? '…' : enabled ? 'Вкл' : 'Выкл'}
+        chevron
         onClick={busy ? undefined : () => void toggle()}
       />
       {enabled && (
@@ -86,7 +94,7 @@ export function BankSmsSettingsSection({ settings, onStatus }: Props) {
             }}
           />
           <ListRow
-            label="Проверить канал"
+            label="Проверить канал (формат Сбера)"
             chevron
             onClick={async () => {
               try {
@@ -98,6 +106,10 @@ export function BankSmsSettingsSection({ settings, onStatus }: Props) {
               }
             }}
           />
+          <p className="px-4 pb-2 text-[12px] leading-snug text-[var(--label-tertiary)]">
+            Тест с телефона: перешлите SMS покупки на {TEST_SMS_SENDER}, автоматизация — отправитель{' '}
+            {allowedSmsSenderHint()}.
+          </p>
           <ListRow
             label="Перевыпустить ключи"
             chevron

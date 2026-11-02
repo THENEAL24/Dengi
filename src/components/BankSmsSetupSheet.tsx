@@ -2,6 +2,7 @@ import { Sheet } from '@/components/ui/Sheet';
 import { Button } from '@/components/ui/Button';
 import type { Settings } from '@/db/db';
 import { webhookUrl, shortcutImportUrl } from '@/lib/syncApi';
+import { allowedSmsSenderHint, TEST_SMS_SENDER } from '@bank/sms';
 import { haptic } from '@/lib/haptics';
 
 type Props = {
@@ -12,7 +13,8 @@ type Props = {
 
 const STEPS = [
   'Команды → Автоматизация → + → Сообщение.',
-  'Отправитель: 9-00 или 900 (Сбер). По желанию: текст содержит «Покупка».',
+  `Отправитель: ${allowedSmsSenderHint()}. По желанию: текст содержит «Покупка».`,
+  `Тест: перешлите SMS Сбера себе с ${TEST_SMS_SENDER} или настройте автоматизацию на этот номер.`,
   'Действие: выполнить команду «Деньги: банковское SMS», вход — текст сообщения.',
   'Включите «Выполнять сразу», без запроса подтверждения.',
 ];

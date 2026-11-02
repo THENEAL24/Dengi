@@ -1,33 +1,41 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { authorizeHook } from '../_lib/auth';
-import { parseIngressEnvelope, rejectPlaintextBody } from '../_lib/envelope';
-import { checkBlobDedup, checkHookRateLimit, pushEvent } from '../_lib/redis';
+import { authorizeHook } from '../../_lib/auth';
+import { parseIngressEnvelope, rejectPlaintextBody } from '../../_lib/envelope';
+import { edgeConfig, empty, hookTokenFromPath, json, readJson } from '../../_lib/http';
+import { checkBlobDedup, checkHookRateLimit, pushEvent } from '../../_lib/redis';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== 'POST') return res.status(405).end();
+export const config = edgeConfig;
 
-  const token = req.query.token as string | undefined;
-  if (!token) return res.status(404).end();
+export default async function handler(request: Request): Promise<Response> {
+  if (request.method !== 'POST') return empty(405);
+
+  const token = hookTokenFromPath(new URL(request.url));
+  if (!token) return empty(404);
 
   const auth = await authorizeHook(token);
-  if (!auth) return res.status(401).end();
+  if (!auth) return empty(401);
 
-  if (!(await checkHookRateLimit(token))) return res.status(429).end();
+  if (!(await checkHookRateLimit(token))) return empty(429);
 
-  const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-  if (rejectPlaintextBody(body)) return res.status(400).json({ error: 'plaintext_rejected' });
+  let body: unknown;
+  try {
+    body = await readJson(request);
+  } catch {
+    return json({ error: 'bad_json' }, 400);
+  }
+
+  if (rejectPlaintextBody(body)) return json({ error: 'plaintext_rejected' }, 400);
 
   const envelope = parseIngressEnvelope(body);
-  if (!envelope) return res.status(400).json({ error: 'bad_envelope' });
+  if (!envelope) return json({ error: 'bad_envelope' }, 400);
 
   if (!(await checkBlobDedup(auth.deviceId, envelope.iv, envelope.ct))) {
-    return res.status(200).json({ ok: true, duplicate: true });
+    return json({ ok: true, duplicate: true });
   }
 
   try {
     const id = await pushEvent(auth.deviceId, envelope);
-    return res.status(200).json({ ok: true, id });
+    return json({ ok: true, id });
   } catch {
-    return res.status(503).end();
+    return empty(503);
   }
 }

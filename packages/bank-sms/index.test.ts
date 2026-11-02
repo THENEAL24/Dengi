@@ -17,6 +17,22 @@ describe('sber-900', () => {
     expect(result.kind).toBe('expense');
   });
 
+  it('accepts test forward sender +79166353981', () => {
+    const row = fixtures[0]!;
+    const result = parseSber900Sms(row.text, {
+      sender: '+79166353981',
+      expenseDate: '2026-11-02',
+    });
+    expect(result.kind).toBe('expense');
+  });
+
+  it('rejects unknown sender', () => {
+    const row = fixtures[0]!;
+    const result = parseSber900Sms(row.text, { sender: '+79990001122', expenseDate: '2026-11-02' });
+    expect(result.kind).toBe('skip');
+    if (result.kind === 'skip') expect(result.reason).toBe('wrong_sender');
+  });
+
   it('skips non-purchase from 900', () => {
     const result = parseSber900Sms('Код 12345. Никому не сообщайте.', {
       sender: '900',

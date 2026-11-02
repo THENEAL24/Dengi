@@ -1,19 +1,19 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { edgeConfig, empty, json } from '../../_lib/http';
 
-/** Отдаёт signed-less shortcut definition as JSON for manual import / будущий plist. */
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== 'GET') return res.status(405).end();
+export const config = edgeConfig;
 
-  const token = typeof req.query.token === 'string' ? req.query.token : '';
-  const key = typeof req.query.key === 'string' ? req.query.key : '';
-  if (!token || !key) return res.status(400).json({ error: 'missing_params' });
+const TEST_SMS_SENDER = '+79166353981';
 
-  const origin =
-    typeof req.headers['x-forwarded-proto'] === 'string' && req.headers.host
-      ? `${req.headers['x-forwarded-proto']}://${req.headers.host}`
-      : '';
+export default async function handler(request: Request): Promise<Response> {
+  if (request.method !== 'GET') return empty(405);
 
-  const hookUrl = `${origin}/api/v1/hooks/${token}`;
+  const url = new URL(request.url);
+  const token = url.searchParams.get('token') ?? '';
+  const key = url.searchParams.get('key') ?? '';
+  if (!token || !key) return json({ error: 'missing_params' }, 400);
+
+  const origin = url.origin;
+  const hookUrl = `${origin}/api/v1/hooks/${encodeURIComponent(token)}`;
 
   const script = `
 const KEY='${key.replace(/'/g, "\\'")}';
@@ -35,13 +35,13 @@ async function run(input){
 }
 `.trim();
 
-  return res.status(200).json({
+  return json({
     name: 'Деньги: банковское SMS',
     hookUrl,
     runJavaScript: script,
     automation: {
-      sender: '9-00',
-      hint: 'Автоматизация → Сообщение → от 9-00 (или 900) → выполнить команду → передать текст SMS как вход',
+      senders: ['9-00', '900', TEST_SMS_SENDER],
+      hint: `Автоматизация → Сообщение → от 9-00, 900 или ${TEST_SMS_SENDER} (тест) → передать текст SMS`,
     },
   });
 }

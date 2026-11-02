@@ -18,22 +18,40 @@ export type ParseResult =
   | { kind: 'expense'; amountMinor: number; merchant: string; balanceMinor?: number; time: string }
   | { kind: 'skip'; reason: 'unsupported_op' | 'no_match' | 'wrong_sender' };
 
+/** Тестовый пересыл: SMS в формате Сбера с личного номера. */
+export const TEST_SMS_SENDER = '+79166353981';
+export const TEST_SMS_SENDER_DIGITS = '79166353981';
+
+const ALLOWED_SENDER_DIGITS = new Set(['900', TEST_SMS_SENDER_DIGITS]);
+
 export function normalizeSender(raw?: string): string {
   if (!raw) return '';
-  return raw.replace(/[\s\u00a0\-–—]/g, '').replace(/\D/g, '');
+  return raw.replace(/[\s\u00a0\-–—()]/g, '').replace(/\D/g, '');
 }
 
-/** Сбер шлёт с «900» или «9-00» (и варианты с пробелами/тире). */
+/** Сбер: 900 / 9-00. Для тестов: {@link TEST_SMS_SENDER}. */
 export function isSber900Sender(sender?: string): boolean {
+  return isAllowedBankSmsSender(sender);
+}
+
+export function isAllowedBankSmsSender(sender?: string): boolean {
   if (!sender?.trim()) return true;
-  return normalizeSender(sender) === '900';
+  const digits = normalizeSender(sender);
+  if (ALLOWED_SENDER_DIGITS.has(digits)) return true;
+  // +7 (916) 635-39-81 и прочие маски
+  if (digits.endsWith(TEST_SMS_SENDER_DIGITS.slice(1))) return true;
+  return false;
+}
+
+export function allowedSmsSenderHint(): string {
+  return `9-00, 900 или ${TEST_SMS_SENDER} (тест)`;
 }
 
 export function parseSber900Sms(
   text: string,
   options: { sender?: string; expenseDate: string },
 ): ParseResult {
-  if (options.sender && !isSber900Sender(options.sender)) {
+  if (options.sender && !isAllowedBankSmsSender(options.sender)) {
     return { kind: 'skip', reason: 'wrong_sender' };
   }
 
