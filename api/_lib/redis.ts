@@ -1,17 +1,54 @@
-import { Redis } from '@upstash/redis';
+import { Redis } from '@upstash/redis/cloudflare';
 import { blobDedupKey } from './crypto.js';
 import type { IngressEnvelopeWire } from './envelope.js';
 
 let redis: Redis | null = null;
 
+const UPSTASH_TIMEOUT_MS = 8_000;
+
+/** Vercel Redis often injects only REDIS_URL=rediss://default:TOKEN@host:6379 (Upstash-compatible). */
+function credentialsFromRedisUrl(redisUrl: string): { url: string; token: string } | null {
+  try {
+    const u = new URL(redisUrl.trim());
+    const token = decodeURIComponent(u.password || u.username || '');
+    if (!u.hostname || !token) return null;
+    return { url: `https://${u.hostname}`, token };
+  } catch {
+    return null;
+  }
+}
+
+function redisRestCredentials(): { url: string; token: string } | null {
+  const url =
+    process.env.UPSTASH_REDIS_REST_URL ??
+    process.env.KV_REST_API_URL ??
+    process.env.REDIS_REST_API_URL;
+  const token =
+    process.env.UPSTASH_REDIS_REST_TOKEN ??
+    process.env.KV_REST_API_TOKEN ??
+    process.env.REDIS_REST_API_TOKEN;
+  if (url?.trim() && token?.trim()) {
+    return { url: url.trim(), token: token.trim() };
+  }
+
+  const fromRedisUrl = process.env.REDIS_URL ? credentialsFromRedisUrl(process.env.REDIS_URL) : null;
+  if (fromRedisUrl) return fromRedisUrl;
+
+  return null;
+}
+
 export function getRedis(): Redis {
   if (!redis) {
-    const url = process.env.UPSTASH_REDIS_REST_URL;
-    const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-    if (!url || !token) {
+    const creds = redisRestCredentials();
+    if (!creds) {
       throw new Error('missing_upstash_env');
     }
-    redis = new Redis({ url, token });
+    redis = new Redis({
+      url: creds.url,
+      token: creds.token,
+      retry: { retries: 0 },
+      signal: () => AbortSignal.timeout(UPSTASH_TIMEOUT_MS),
+    });
   }
   return redis;
 }

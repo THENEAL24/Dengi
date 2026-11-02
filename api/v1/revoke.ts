@@ -1,11 +1,10 @@
 import { authorizeSyncSecret } from '../_lib/auth.js';
-import { bearerAuth, edgeConfig, empty, json } from '../_lib/http.js';
+import { bearerAuth, empty, json } from '../_lib/http.js';
 import { revokeDevice } from '../_lib/redis.js';
 
-export const config = edgeConfig;
+export const runtime = 'edge';
 
-export default async function handler(request: Request): Promise<Response> {
-  if (request.method !== 'POST') return empty(405);
+export async function POST(request: Request): Promise<Response> {
   const syncSecret = bearerAuth(request);
   if (!syncSecret) return empty(401);
 

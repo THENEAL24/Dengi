@@ -1,13 +1,11 @@
 import { authorizeHook } from '../../_lib/auth.js';
 import { parseIngressEnvelope, rejectPlaintextBody } from '../../_lib/envelope.js';
-import { edgeConfig, empty, hookTokenFromPath, json, readJson } from '../../_lib/http.js';
+import { empty, hookTokenFromPath, json, readJson } from '../../_lib/http.js';
 import { checkBlobDedup, checkHookRateLimit, pushEvent } from '../../_lib/redis.js';
 
-export const config = edgeConfig;
+export const runtime = 'edge';
 
-export default async function handler(request: Request): Promise<Response> {
-  if (request.method !== 'POST') return empty(405);
-
+export async function POST(request: Request): Promise<Response> {
   const token = hookTokenFromPath(new URL(request.url));
   if (!token) return empty(404);
 

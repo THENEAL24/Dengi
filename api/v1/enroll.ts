@@ -1,13 +1,11 @@
 import { registerSyncIndex } from '../_lib/auth.js';
 import { hashSha256, randomToken } from '../_lib/crypto.js';
-import { edgeConfig, empty, json } from '../_lib/http.js';
+import { json } from '../_lib/http.js';
 import { saveDevice } from '../_lib/redis.js';
 
-export const config = edgeConfig;
+export const runtime = 'edge';
 
-export default async function handler(request: Request): Promise<Response> {
-  if (request.method !== 'POST') return empty(405);
-
+export async function POST(): Promise<Response> {
   try {
     const deviceId = randomToken('d');
     const webhookToken = randomToken('w');

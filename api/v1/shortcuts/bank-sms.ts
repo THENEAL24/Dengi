@@ -2,15 +2,13 @@ import {
   buildBankSmsRunScript,
   buildBankSmsShortcutPlist,
 } from '../../../packages/bank-shortcut/runScript.js';
-import { edgeConfig, empty, json } from '../../_lib/http.js';
+import { json } from '../../_lib/http.js';
 
-export const config = edgeConfig;
+export const runtime = 'edge';
 
 const TEST_SMS_SENDER = '+79166353981';
 
-export default async function handler(request: Request): Promise<Response> {
-  if (request.method !== 'GET') return empty(405);
-
+export async function GET(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const token = url.searchParams.get('token') ?? '';
   const key = url.searchParams.get('key') ?? '';
