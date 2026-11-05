@@ -1,6 +1,8 @@
 /** Даты живут как локальные строки 'YYYY-MM-DD', месяцы — как 'YYYY-MM'.
  *  Никаких UTC-конверсий: с ними «сегодня» уезжает на день назад. */
 
+import { getActiveLocale, translate, type Locale } from '@/lib/i18n';
+
 export type IsoDate = string;
 export type MonthId = string;
 
@@ -60,92 +62,69 @@ export function addDays(iso: IsoDate, days: number): IsoDate {
   return toIso(date);
 }
 
-const monthNames = [
-  'Январь',
-  'Февраль',
-  'Март',
-  'Апрель',
-  'Май',
-  'Июнь',
-  'Июль',
-  'Август',
-  'Сентябрь',
-  'Октябрь',
-  'Ноябрь',
-  'Декабрь',
-];
+function monthName(monthIndex: number, locale: Locale): string {
+  return translate(locale, `date.month.${monthIndex + 1}`);
+}
 
-const monthNamesGenitive = [
-  'января',
-  'февраля',
-  'марта',
-  'апреля',
-  'мая',
-  'июня',
-  'июля',
-  'августа',
-  'сентября',
-  'октября',
-  'ноября',
-  'декабря',
-];
+function monthNameGenitive(monthIndex: number, locale: Locale): string {
+  return translate(locale, `date.monthGenitive.${monthIndex + 1}`);
+}
 
-const weekdays = [
-  'воскресенье',
-  'понедельник',
-  'вторник',
-  'среда',
-  'четверг',
-  'пятница',
-  'суббота',
-];
+function weekdayName(dayIndex: number, locale: Locale): string {
+  return translate(locale, `date.weekday.${dayIndex}`);
+}
 
-const weekdaysShort = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
+function weekdayShortName(dayIndex: number, locale: Locale): string {
+  return translate(locale, `date.weekdayShort.${dayIndex}`);
+}
 
-export function monthTitle(monthId: MonthId, withYear = true): string {
+export function monthTitle(monthId: MonthId, withYear = true, locale = getActiveLocale()): string {
   const [year, month] = monthId.split('-').map(Number);
-  const name = monthNames[month - 1];
+  const name = monthName(month - 1, locale);
   return withYear ? `${name} ${year}` : name;
 }
 
-export function monthTitleShort(monthId: MonthId): string {
+export function monthTitleShort(monthId: MonthId, locale = getActiveLocale()): string {
   const [year, month] = monthId.split('-').map(Number);
   const nowYear = new Date().getFullYear();
-  const name = monthNames[month - 1];
+  const name = monthName(month - 1, locale);
   return year === nowYear ? name : `${name} ${year}`;
 }
 
 /** «Сегодня», «Вчера» или «19 сентября» */
-export function dayTitle(iso: IsoDate): string {
+export function dayTitle(iso: IsoDate, locale = getActiveLocale()): string {
   const today = todayIso();
-  if (iso === today) return 'Сегодня';
-  if (iso === addDays(today, -1)) return 'Вчера';
-  if (iso === addDays(today, 1)) return 'Завтра';
+  if (iso === today) return translate(locale, 'date.today');
+  if (iso === addDays(today, -1)) return translate(locale, 'date.yesterday');
+  if (iso === addDays(today, 1)) return translate(locale, 'date.tomorrow');
 
   const date = fromIso(iso);
-  const base = `${date.getDate()} ${monthNamesGenitive[date.getMonth()]}`;
+  const base = `${date.getDate()} ${monthNameGenitive(date.getMonth(), locale)}`;
   return date.getFullYear() === new Date().getFullYear()
     ? base
     : `${base} ${date.getFullYear()}`;
 }
 
-export function dayWithWeekday(iso: IsoDate): string {
+export function dayWithWeekday(iso: IsoDate, locale = getActiveLocale()): string {
   const date = fromIso(iso);
-  return `${dayTitle(iso)}, ${weekdays[date.getDay()]}`;
+  return `${dayTitle(iso, locale)}, ${weekdayName(date.getDay(), locale)}`;
 }
 
 /** «19 сентября, суббота» — без «Сегодня», чтобы не дублировать заголовок экрана */
-export function dateWithWeekday(iso: IsoDate): string {
+export function dateWithWeekday(iso: IsoDate, locale = getActiveLocale()): string {
   const date = fromIso(iso);
-  return `${date.getDate()} ${monthNamesGenitive[date.getMonth()]}, ${weekdays[date.getDay()]}`;
+  return `${date.getDate()} ${monthNameGenitive(date.getMonth(), locale)}, ${weekdayName(date.getDay(), locale)}`;
 }
 
-export function weekdayShort(iso: IsoDate): string {
-  return weekdaysShort[fromIso(iso).getDay()];
+export function weekdayShort(iso: IsoDate, locale = getActiveLocale()): string {
+  return weekdayShortName(fromIso(iso).getDay(), locale);
 }
 
-export function fullDate(iso: IsoDate): string {
+export function fullDate(iso: IsoDate, locale = getActiveLocale()): string {
   const date = fromIso(iso);
-  return `${date.getDate()} ${monthNamesGenitive[date.getMonth()]} ${date.getFullYear()}`;
+  return `${date.getDate()} ${monthNameGenitive(date.getMonth(), locale)} ${date.getFullYear()}`;
 }
 
+export function monthTitleLower(monthId: MonthId, locale = getActiveLocale()): string {
+  return monthTitleShort(monthId, locale).toLocaleLowerCase(locale === 'en' ? 'en-US' : 'ru-RU');
+}

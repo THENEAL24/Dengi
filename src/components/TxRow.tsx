@@ -1,6 +1,7 @@
 import type { Category, Tx } from '@/db/db';
 import { cn } from '@/lib/cn';
 import { formatMoney } from '@/lib/money';
+import { useTranslation } from '@/state/I18nContext';
 
 type Props = {
   tx: Tx;
@@ -18,7 +19,8 @@ function timeOf(timestamp: number): string {
 }
 
 export function TxRow({ tx, category, currency, onClick, last, showDate }: Props) {
-  const title = category?.name ?? tx.note ?? 'Трата';
+  const { t } = useTranslation();
+  const title = category?.name ?? tx.note ?? t('expense.defaultTitle');
   const subtitle = category && tx.note ? tx.note : showDate ? undefined : timeOf(tx.createdAt);
 
   return (

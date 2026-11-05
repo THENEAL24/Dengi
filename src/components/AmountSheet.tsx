@@ -4,7 +4,8 @@ import { Keypad } from './Keypad';
 import { Button } from './ui/Button';
 import { Sheet } from './ui/Sheet';
 import { cn } from '@/lib/cn';
-import { keypadToMinor } from '@/lib/money';
+import { minorToKeypadDigits, keypadToMinor } from '@/lib/money';
+import { useTranslation } from '@/state/I18nContext';
 
 type Props = {
   open: boolean;
@@ -19,12 +20,8 @@ type Props = {
   onSubmit: (minor: number) => void | Promise<void>;
 };
 
-function minorToDigits(minor: number): string {
-  const absolute = Math.abs(minor);
-  const whole = Math.trunc(absolute / 100);
-  const cents = absolute % 100;
-  if (absolute === 0) return '';
-  return cents === 0 ? String(whole) : `${whole}.${String(cents).padStart(2, '0')}`;
+function minorToDigits(minor: number, currency: string): string {
+  return minorToKeypadDigits(minor, currency);
 }
 
 export function AmountSheet({
@@ -35,20 +32,22 @@ export function AmountSheet({
   currency,
   initialMinor = 0,
   signed = false,
-  submitLabel = 'Сохранить',
+  submitLabel,
   onSubmit,
 }: Props) {
+  const { t } = useTranslation();
+  const resolvedSubmit = submitLabel ?? t('common.save');
   const [digits, setDigits] = useState('');
   const [sign, setSign] = useState<1 | -1>(1);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (!open) return;
-    setDigits(minorToDigits(initialMinor));
+    setDigits(minorToDigits(initialMinor, currency));
     setSign(initialMinor < 0 ? -1 : 1);
-  }, [open, initialMinor]);
+  }, [open, initialMinor, currency]);
 
-  const minor = keypadToMinor(digits) * (signed ? sign : 1);
+  const minor = keypadToMinor(digits, currency) * (signed ? sign : 1);
 
   const submit = async () => {
     setBusy(true);
@@ -90,22 +89,22 @@ export function AmountSheet({
                     : 'bg-[var(--fill-tertiary)] text-[var(--label-secondary)]',
                 )}
               >
-                {option === 1 ? 'Пополнить' : 'Снять'}
+                {option === 1 ? t('common.deposit') : t('common.withdraw')}
               </button>
             ))}
           </div>
         )}
 
-        <Keypad value={digits} onChange={setDigits} className="mt-3" />
+        <Keypad value={digits} onChange={setDigits} currency={currency} className="mt-3" />
 
         <Button
           size="lg"
           full
           className="mt-2"
-          disabled={busy || keypadToMinor(digits) === 0}
+          disabled={busy || keypadToMinor(digits, currency) === 0}
           onClick={submit}
         >
-          {submitLabel}
+          {resolvedSubmit}
         </Button>
       </div>
     </Sheet>

@@ -9,7 +9,8 @@ import { useCategories } from '@/state/hooks';
 import { cn } from '@/lib/cn';
 import { dayTitle, todayIso } from '@/lib/date';
 import { haptic } from '@/lib/haptics';
-import { keypadToMinor } from '@/lib/money';
+import { keypadToMinor, minorToKeypadDigits } from '@/lib/money';
+import { useTranslation } from '@/state/I18nContext';
 
 type Props = {
   open: boolean;
@@ -19,14 +20,12 @@ type Props = {
   editing?: Tx | null;
 };
 
-/** Сумма в копейках → строка для клавиатуры ('125000' → '1250') */
-function minorToDigits(minor: number): string {
-  const whole = Math.trunc(minor / 100);
-  const cents = minor % 100;
-  return cents === 0 ? String(whole) : `${whole}.${String(cents).padStart(2, '0')}`;
+function minorToDigits(minor: number, currency: string): string {
+  return minorToKeypadDigits(minor, currency);
 }
 
 export function ExpenseSheet({ open, onClose, currency, editing }: Props) {
+  const { t } = useTranslation();
   const categories = useCategories();
   const [digits, setDigits] = useState('');
   const [categoryId, setCategoryId] = useState<number | undefined>();
@@ -38,18 +37,18 @@ export function ExpenseSheet({ open, onClose, currency, editing }: Props) {
 
   useEffect(() => {
     if (!open) return;
-    setDigits(editing ? minorToDigits(editing.amountMinor) : '');
+    setDigits(editing ? minorToDigits(editing.amountMinor, currency) : '');
     setCategoryId(editing?.categoryId);
     setNote(editing?.note ?? '');
     setDate(editing?.date ?? todayIso());
     setNoteMode(false);
-  }, [open, editing]);
+  }, [open, editing, currency]);
 
   useEffect(() => {
     if (noteMode) noteInput.current?.focus();
   }, [noteMode]);
 
-  const amountMinor = keypadToMinor(digits);
+  const amountMinor = keypadToMinor(digits, currency);
   const canSave = amountMinor > 0 && !busy;
 
   const save = async () => {
@@ -88,10 +87,10 @@ export function ExpenseSheet({ open, onClose, currency, editing }: Props) {
           onClick={onClose}
           className="px-1 py-1 text-[17px] text-[var(--link)]"
         >
-          Отмена
+          {t('common.cancel')}
         </button>
         <span className="text-[17px] font-semibold">
-          {editing ? 'Трата' : 'Новая трата'}
+          {editing ? t('expense.edit') : t('expense.new')}
         </span>
         <button
           type="button"
@@ -102,7 +101,7 @@ export function ExpenseSheet({ open, onClose, currency, editing }: Props) {
             canSave ? 'text-[var(--link)]' : 'text-[var(--label-quaternary)]',
           )}
         >
-          {editing ? 'Готово' : 'Добавить'}
+          {editing ? t('common.done') : t('common.add')}
         </button>
       </div>
 
@@ -149,7 +148,7 @@ export function ExpenseSheet({ open, onClose, currency, editing }: Props) {
             value={date}
             onChange={(event) => setDate(event.target.value || todayIso())}
             className="absolute inset-0 opacity-0"
-            aria-label="Дата траты"
+            aria-label={t('expense.dateAria')}
           />
         </label>
 
@@ -162,7 +161,7 @@ export function ExpenseSheet({ open, onClose, currency, editing }: Props) {
           )}
         >
           <NoteIcon size={17} className="text-[var(--label-secondary)]" />
-          <span className="max-w-[160px] truncate">{note || 'Заметка'}</span>
+          <span className="max-w-[160px] truncate">{note || t('common.note')}</span>
         </button>
 
         {editing && (
@@ -170,7 +169,7 @@ export function ExpenseSheet({ open, onClose, currency, editing }: Props) {
             type="button"
             onClick={remove}
             className="pressable ml-auto grid size-9 place-items-center rounded-full bg-[var(--fill-tertiary)] text-[var(--negative)]"
-            aria-label="Удалить трату"
+            aria-label={t('expense.deleteAria')}
           >
             <TrashIcon size={18} />
           </button>
@@ -186,7 +185,7 @@ export function ExpenseSheet({ open, onClose, currency, editing }: Props) {
             onKeyDown={(event) => {
               if (event.key === 'Enter') setNoteMode(false);
             }}
-            placeholder="На что потратил?"
+            placeholder={t('expense.notePlaceholder')}
             maxLength={80}
             className="h-11 flex-1 rounded-[var(--radius-control)] bg-[var(--fill-tertiary)] px-3.5 outline-none placeholder:text-[var(--label-tertiary)]"
           />
@@ -194,13 +193,13 @@ export function ExpenseSheet({ open, onClose, currency, editing }: Props) {
             type="button"
             onClick={() => setNoteMode(false)}
             className="pressable grid size-11 place-items-center rounded-[var(--radius-control)] bg-[var(--link)] text-white"
-            aria-label="Готово"
+            aria-label={t('common.done')}
           >
             <CheckIcon size={20} />
           </button>
         </div>
       ) : (
-        <Keypad value={digits} onChange={setDigits} className="px-3 pb-1" />
+        <Keypad value={digits} onChange={setDigits} currency={currency} className="px-3 pb-1" />
       )}
     </Sheet>
   );

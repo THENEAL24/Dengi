@@ -11,11 +11,13 @@ import { TxRow } from '@/components/TxRow';
 import type { Settings } from '@/db/db';
 import { listRecentTx } from '@/db/repo';
 import { useCategories, useCurrentMonthView, useSavingsTotal, useToday } from '@/state/hooks';
+import { effectiveAmountRounding } from '@/lib/currencies';
 import { cn } from '@/lib/cn';
 import { dateWithWeekday } from '@/lib/date';
 import { pluralDays } from '@/lib/plural';
 import { formatMoney } from '@/lib/money';
 import { haptic } from '@/lib/haptics';
+import { useTranslation } from '@/state/I18nContext';
 
 type Props = {
   settings: Settings;
@@ -24,6 +26,7 @@ type Props = {
 };
 
 export function Today({ settings, onAddExpense, onOpenHistory }: Props) {
+  const { t } = useTranslation();
   const [balanceOpen, setBalanceOpen] = useState(false);
   const [topUpOpen, setTopUpOpen] = useState(false);
   const today = useToday();
@@ -42,32 +45,19 @@ export function Today({ settings, onAddExpense, onOpenHistory }: Props) {
     dailyNormMinor > 0 ? spentTodayMinor / dailyNormMinor : spentTodayMinor > 0 ? 1.01 : 0;
   const dailyOverNorm = dailyNormMinor > 0 && spentTodayMinor > dailyNormMinor;
   const overspent = Boolean(math && math.balanceMinor < 0);
-  const balanceText = math ? formatMoney(math.balanceMinor, currency, { cents: false }) : '—';
+  const amountRounding = effectiveAmountRounding(currency, settings.amountRounding);
+  const balanceText = math
+    ? formatMoney(math.balanceMinor, currency, { cents: 'auto', rounding: amountRounding })
+    : '—';
 
   return (
-    <Screen
-      title="Сегодня"
-      subtitle={dateWithWeekday(today)}
-      action={
-        <button
-          type="button"
-          onClick={() => {
-            haptic('medium');
-            onAddExpense();
-          }}
-          className="glass pressable grid size-9 place-items-center rounded-full"
-          aria-label="Добавить трату"
-        >
-          <PlusIcon size={20} className="text-[var(--link)]" />
-        </button>
-      }
-    >
-      <div className="flex flex-col items-center px-[var(--page-gutter)] pt-2">
+    <Screen title={t('tab.today')} subtitle={dateWithWeekday(today)} compactTop showLocaleSwitcher>
+      <div className="flex flex-col items-center px-[var(--page-gutter)] pt-0">
         <button type="button" className="pressable" onClick={() => setBalanceOpen(true)}>
           <ProgressRing progress={dailyRingProgress} size={228}>
             <div>
               <p className="text-[13px] font-medium tracking-wide text-[var(--label-secondary)] uppercase">
-                Доступно
+                {t('app.available')}
               </p>
               <p
                 className={cn(
@@ -85,9 +75,9 @@ export function Today({ settings, onAddExpense, onOpenHistory }: Props) {
                     dailyOverNorm && 'text-[var(--ios-orange)]',
                   )}
                 >
-                  {formatMoney(spentTodayMinor, currency, { cents: false })} сегодня
+                  {t('today.spentTodayInline', { amount: formatMoney(spentTodayMinor, currency, { cents: 'auto' }) })}
                   {dailyNormMinor > 0 && (
-                    <> · норма {formatMoney(dailyNormMinor, currency, { cents: false })}</>
+                    <>{t('today.normInline', { amount: formatMoney(dailyNormMinor, currency, { cents: 'auto' }) })}</>
                   )}
                 </p>
               )}
@@ -105,7 +95,7 @@ export function Today({ settings, onAddExpense, onOpenHistory }: Props) {
             className="pressable flex h-[52px] w-full items-center justify-center gap-2 rounded-[18px] bg-[var(--link)] text-[18px] font-semibold text-white"
           >
             <PlusIcon size={20} />
-            Добавить трату
+            {t('today.addExpenseBtn')}
           </button>
           <button
             type="button"
@@ -116,7 +106,7 @@ export function Today({ settings, onAddExpense, onOpenHistory }: Props) {
             className="pressable flex h-[52px] w-full items-center justify-center gap-2 rounded-[18px] bg-[var(--ios-green)] text-[18px] font-semibold text-white"
           >
             <ArrowDownIcon size={20} />
-            Зачислить
+            {t('today.topUp')}
           </button>
         </div>
       </div>
@@ -125,8 +115,8 @@ export function Today({ settings, onAddExpense, onOpenHistory }: Props) {
         <div className="mt-4 px-[var(--page-gutter)]">
           <GlassCard className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-[13px] text-[var(--label-secondary)]">Зачислено за месяц</p>
-              <p className="text-[15px]">Извне, не из копилки</p>
+              <p className="text-[13px] text-[var(--label-secondary)]">{t('today.topUpsMonth')}</p>
+              <p className="text-[15px]">{t('today.topUpsExternal')}</p>
             </div>
             <p className="money text-[24px] font-bold text-[var(--ios-green)]">
               {formatMoney(math.externalTopUpsMinor, currency, {
@@ -140,37 +130,37 @@ export function Today({ settings, onAddExpense, onOpenHistory }: Props) {
 
       <div className="mt-4 grid grid-cols-2 gap-2.5 px-[var(--page-gutter)]">
         <StatCard
-          label="Потрачено сегодня"
+          label={t('today.spentToday')}
           value={formatMoney(view?.spentTodayMinor ?? 0, currency, { cents: false })}
           hint={
             math
-              ? `норма ${formatMoney(math.dailyRateMinor, currency, { cents: false })}`
+              ? t('today.normHint', { amount: formatMoney(math.dailyRateMinor, currency, { cents: 'auto' }) })
               : undefined
           }
           warn={Boolean(math && (view?.spentTodayMinor ?? 0) > math.dailyRateMinor)}
         />
         <StatCard
-          label="Можно в день"
-          value={math ? formatMoney(Math.max(0, math.safeDailyMinor), currency, { cents: false }) : '—'}
-          hint={math ? `осталось ${pluralDays(math.remainingDays)}` : undefined}
+          label={t('today.safeDaily')}
+          value={math ? formatMoney(Math.max(0, math.safeDailyMinor), currency, { cents: 'auto' }) : '—'}
+          hint={math ? t('today.daysLeft', { days: pluralDays(math.remainingDays) }) : undefined}
         />
         <StatCard
-          label="Потрачено за месяц"
+          label={t('today.spentMonth')}
           value={math ? formatMoney(math.spentMinor, currency, { cents: false }) : '—'}
           hint={
             math
-              ? `из ${formatMoney(math.monthAllowanceMinor, currency, { cents: false })}`
+              ? t('today.ofAllowance', { amount: formatMoney(math.monthAllowanceMinor, currency, { cents: false }) })
               : undefined
           }
         />
         <StatCard
-          label="Копилка"
+          label={t('settings.savings')}
           value={formatMoney(savings, currency, { cents: false })}
           hint={
             math?.dailySavingsMinor
-              ? `+${formatMoney(math.dailySavingsMinor, currency, { cents: false })}/день авто`
+              ? t('today.savingsAuto', { amount: formatMoney(math.dailySavingsMinor, currency, { cents: false }) })
               : math && math.openingBalanceMinor !== 0
-                ? `перенос ${formatMoney(math.openingBalanceMinor, currency, { cents: false, signed: true })}`
+                ? t('today.carryOpening', { amount: formatMoney(math.openingBalanceMinor, currency, { cents: false, signed: true }) })
                 : undefined
           }
           onClick={() => setBalanceOpen(true)}
@@ -181,8 +171,8 @@ export function Today({ settings, onAddExpense, onOpenHistory }: Props) {
         <div className="mt-2.5 px-[var(--page-gutter)]">
           <GlassCard className="flex items-center justify-between">
             <div>
-              <p className="text-[13px] text-[var(--label-secondary)]">Если больше не тратить</p>
-              <p className="text-[15px]">К концу месяца останется</p>
+              <p className="text-[13px] text-[var(--label-secondary)]">{t('today.ifNoSpend')}</p>
+              <p className="text-[15px]">{t('today.projectedEnd')}</p>
             </div>
             <p
               className={cn(
@@ -190,7 +180,7 @@ export function Today({ settings, onAddExpense, onOpenHistory }: Props) {
                 math.projectedEndMinor < 0 && 'text-[var(--negative)]',
               )}
             >
-              {formatMoney(math.projectedEndMinor, currency, { cents: false, signed: true })}
+              {formatMoney(math.projectedEndMinor, currency, { cents: 'auto', signed: true })}
             </p>
           </GlassCard>
         </div>
@@ -198,14 +188,14 @@ export function Today({ settings, onAddExpense, onOpenHistory }: Props) {
 
       <section className="mt-4 px-[var(--page-gutter)]">
         <div className="flex items-center justify-between px-1 pb-1.5">
-          <h3 className="text-[20px] font-bold tracking-[-0.02em]">Последние траты</h3>
+          <h3 className="text-[20px] font-bold tracking-[-0.02em]">{t('today.recentExpenses')}</h3>
           {recent.length > 0 && (
             <button
               type="button"
               onClick={onOpenHistory}
               className="text-[15px] font-medium text-[var(--link)]"
             >
-              Все
+              {t('common.all')}
             </button>
           )}
         </div>
@@ -213,7 +203,7 @@ export function Today({ settings, onAddExpense, onOpenHistory }: Props) {
         {recent.length === 0 ? (
           <GlassCard className="text-center">
             <p className="text-[15px] text-[var(--label-secondary)]">
-              Трат пока нет. Добавь первую — бюджет пересчитается сразу.
+              {t('today.noExpenses')}
             </p>
           </GlassCard>
         ) : (
@@ -245,10 +235,10 @@ export function Today({ settings, onAddExpense, onOpenHistory }: Props) {
       <AmountSheet
         open={topUpOpen}
         onClose={() => setTopUpOpen(false)}
-        title="Зачислить на доступные"
-        hint="Деньги добавятся к «Доступно» и не затронут копилку — например, если пришла зарплата или возврат."
+        title={t('today.topUpTitle')}
+        hint={t('today.topUpHint')}
         currency={currency}
-        submitLabel="Зачислить"
+        submitLabel={t('today.topUp')}
         onSubmit={async (minor) => {
           if (minor <= 0) return;
           await topUpAvailable(minor);

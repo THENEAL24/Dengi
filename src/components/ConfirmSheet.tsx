@@ -1,5 +1,6 @@
 import { Button } from './ui/Button';
 import { Sheet } from './ui/Sheet';
+import { useTranslation } from '@/state/I18nContext';
 
 type Props = {
   open: boolean;
@@ -16,10 +17,12 @@ export function ConfirmSheet({
   onClose,
   title,
   message,
-  confirmLabel = 'Продолжить',
+  confirmLabel,
   destructive,
   onConfirm,
 }: Props) {
+  const { t } = useTranslation();
+
   return (
     <Sheet open={open} onClose={onClose}>
       <div className="px-5 pt-2 pb-2">
@@ -36,10 +39,10 @@ export function ConfirmSheet({
               onClose();
             }}
           >
-            {confirmLabel}
+            {confirmLabel ?? t('common.confirmContinue')}
           </Button>
           <Button size="lg" full variant="tinted" onClick={onClose}>
-            Отмена
+            {t('common.cancel')}
           </Button>
         </div>
       </div>

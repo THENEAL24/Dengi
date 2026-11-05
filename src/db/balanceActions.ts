@@ -26,11 +26,11 @@ export async function transferToSavings(
   note?: string,
   today = todayIso(),
 ): Promise<void> {
-  if (amountMinor <= 0) throw new Error('Сумма должна быть больше нуля');
+  if (amountMinor <= 0) throw new Error('error.amountMustBePositive');
 
   const ctx = await currentMonthMath(today);
-  if (!ctx) throw new Error('Месяц не найден');
-  if (ctx.math.balanceMinor < amountMinor) throw new Error('Недостаточно доступных средств');
+  if (!ctx) throw new Error('error.monthNotFound');
+  if (ctx.math.balanceMinor < amountMinor) throw new Error('error.insufficientAvailable');
 
   await db.transaction('rw', db.months, db.savings, async () => {
     await db.months.update(ctx.month.id, {
@@ -40,7 +40,7 @@ export async function transferToSavings(
       date: today,
       amountMinor,
       kind: 'from_budget',
-      note: note?.trim() || 'Из доступных',
+      note: note?.trim() || undefined,
       monthId: ctx.month.id,
       createdAt: Date.now(),
     } as SavingsEntry);
@@ -53,14 +53,14 @@ export async function transferFromSavings(
   note?: string,
   today = todayIso(),
 ): Promise<void> {
-  if (amountMinor <= 0) throw new Error('Сумма должна быть больше нуля');
+  if (amountMinor <= 0) throw new Error('error.amountMustBePositive');
 
   const total = await savingsTotal();
-  if (total < amountMinor) throw new Error('В копилке недостаточно средств');
+  if (total < amountMinor) throw new Error('error.insufficientSavings');
 
   const monthId = monthIdOf(today);
   const month = await getMonth(monthId);
-  if (!month) throw new Error('Месяц не найден');
+  if (!month) throw new Error('error.monthNotFound');
 
   await db.transaction('rw', db.months, db.savings, async () => {
     await db.months.update(monthId, {
@@ -70,7 +70,7 @@ export async function transferFromSavings(
       date: today,
       amountMinor: -amountMinor,
       kind: 'to_budget',
-      note: note?.trim() || 'В доступные',
+      note: note?.trim() || undefined,
       monthId,
       createdAt: Date.now(),
     } as SavingsEntry);
@@ -79,11 +79,11 @@ export async function transferFromSavings(
 
 /** Пополнить «доступно» без затрагивания копилки. */
 export async function topUpAvailable(amountMinor: number, note?: string, today = todayIso()): Promise<void> {
-  if (amountMinor <= 0) throw new Error('Сумма должна быть больше нуля');
+  if (amountMinor <= 0) throw new Error('error.amountMustBePositive');
 
   const monthId = monthIdOf(today);
   const month = await getMonth(monthId);
-  if (!month) throw new Error('Месяц не найден');
+  if (!month) throw new Error('error.monthNotFound');
 
   await db.transaction('rw', db.months, db.topUps, async () => {
     await db.months.update(monthId, {
@@ -160,12 +160,12 @@ export async function syncAutoSavings(today = todayIso()): Promise<void> {
 
   await db.transaction('rw', db.months, db.savings, async () => {
     for (let day = fromDay; day <= toDay; day += 1) {
-      const date = dateInMonth(month.id, day);
+      const date = dateInMonth(month!.id, day);
       await db.savings.add({
         date,
         amountMinor: dailyAmount,
         kind: 'auto_daily',
-        note: 'Автоотложение',
+        note: undefined,
         monthId: month!.id,
         createdAt: Date.now(),
       } as SavingsEntry);

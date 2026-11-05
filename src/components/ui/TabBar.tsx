@@ -1,14 +1,15 @@
 import { cn } from '@/lib/cn';
 import { haptic } from '@/lib/haptics';
+import { useTranslation } from '@/state/I18nContext';
 import { ChartIcon, GearIcon, ListIcon, WalletIcon } from './icons';
 
 export type TabKey = 'today' | 'history' | 'stats' | 'settings';
 
-const tabs: Array<{ key: TabKey; label: string; Icon: typeof WalletIcon }> = [
-  { key: 'today', label: 'Сегодня', Icon: WalletIcon },
-  { key: 'history', label: 'История', Icon: ListIcon },
-  { key: 'stats', label: 'Статистика', Icon: ChartIcon },
-  { key: 'settings', label: 'Настройки', Icon: GearIcon },
+const tabs: Array<{ key: TabKey; labelKey: string; Icon: typeof WalletIcon }> = [
+  { key: 'today', labelKey: 'tab.today', Icon: WalletIcon },
+  { key: 'history', labelKey: 'tab.history', Icon: ListIcon },
+  { key: 'stats', labelKey: 'tab.stats', Icon: ChartIcon },
+  { key: 'settings', labelKey: 'tab.settings', Icon: GearIcon },
 ];
 
 type Props = {
@@ -17,13 +18,15 @@ type Props = {
 };
 
 export function TabBar({ active, onChange }: Props) {
+  const { t } = useTranslation();
+
   return (
     <nav
       className="glass-flat fixed inset-x-0 bottom-0 z-40 border-0 hairline-t"
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
     >
       <div className="mx-auto flex h-[var(--tabbar-height)] w-full max-w-[520px] items-stretch">
-        {tabs.map(({ key, label, Icon }) => {
+        {tabs.map(({ key, labelKey, Icon }) => {
           const isActive = key === active;
           return (
             <button
@@ -40,7 +43,7 @@ export function TabBar({ active, onChange }: Props) {
               aria-current={isActive ? 'page' : undefined}
             >
               <Icon size={28} strokeWidth={isActive ? 2.2 : 1.8} />
-              <span className="text-[11px] font-medium tracking-tight">{label}</span>
+              <span className="text-[11px] font-medium tracking-tight">{t(labelKey)}</span>
             </button>
           );
         })}

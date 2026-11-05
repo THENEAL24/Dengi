@@ -15,12 +15,15 @@ import { pluralDays } from '@/lib/plural';
 import { formatCompact, formatMoney } from '@/lib/money';
 import { useCategories, useMonthIds, useToday } from '@/state/hooks';
 
+import { useTranslation } from '@/state/I18nContext';
+
 type Props = { settings: Settings };
 type Mode = 'categories' | 'days';
 
 const NO_CATEGORY = -1;
 
 export function Stats({ settings }: Props) {
+  const { t } = useTranslation();
   const today = useToday();
   const monthIds = useMonthIds();
   const categories = useCategories();
@@ -69,21 +72,21 @@ export function Stats({ settings }: Props) {
   const daysWithSpending = byDay.filter((value) => value > 0).length;
 
   return (
-    <Screen title="Статистика" subtitle={month ? undefined : 'Нет данных за месяц'}>
+    <Screen title={t('stats.title')} subtitle={month ? undefined : t('stats.noData')} showLocaleSwitcher>
       <MonthSwitcher monthId={monthId} monthIds={monthIds} onChange={setSelected} />
 
       <div className="space-y-2.5 px-[var(--page-gutter)]">
         <GlassCard>
           <div className="flex items-end justify-between">
             <div>
-              <p className="text-[13px] text-[var(--label-secondary)]">В среднем в день</p>
+              <p className="text-[13px] text-[var(--label-secondary)]">{t('stats.avgPerDay')}</p>
               <p className="money mt-0.5 text-[30px] font-bold">
                 {formatMoney(averagePerDay, currency, { cents: false })}
               </p>
             </div>
             {math && (
               <div className="text-right">
-                <p className="text-[13px] text-[var(--label-secondary)]">Норма</p>
+                <p className="text-[13px] text-[var(--label-secondary)]">{t('stats.norm')}</p>
                 <p className="money mt-0.5 text-[20px] font-semibold">
                   {formatMoney(math.dailyRateMinor, currency, { cents: false })}
                 </p>
@@ -99,21 +102,25 @@ export function Stats({ settings }: Props) {
               )}
             >
               {paceDelta > 0
-                ? `Темп выше нормы на ${formatMoney(paceDelta, currency, { cents: false })} в день`
-                : `Темп ниже нормы на ${formatMoney(Math.abs(paceDelta), currency, { cents: false })} в день`}
+                ? t('stats.paceAbove', {
+                    amount: formatMoney(paceDelta, currency, { cents: false }),
+                  })
+                : t('stats.paceBelow', {
+                    amount: formatMoney(Math.abs(paceDelta), currency, { cents: false }),
+                  })}
             </p>
           )}
         </GlassCard>
 
         <div className="grid grid-cols-2 gap-2.5">
           <MiniCard
-            label="Всего за месяц"
+            label={t('stats.totalMonth')}
             value={formatMoney(spentMinor, currency, { cents: false })}
           />
-          <MiniCard label="Трат" value={String(items.length)} />
-          <MiniCard label="Дней с тратами" value={pluralDays(daysWithSpending)} />
+          <MiniCard label={t('stats.txCount')} value={String(items.length)} />
+          <MiniCard label={t('stats.daysWithSpending')} value={pluralDays(daysWithSpending)} />
           <MiniCard
-            label="Средняя трата"
+            label={t('stats.avgTx')}
             value={formatMoney(items.length ? Math.round(spentMinor / items.length) : 0, currency, {
               cents: false,
             })}
@@ -125,15 +132,15 @@ export function Stats({ settings }: Props) {
           value={mode}
           onChange={setMode}
           options={[
-            { value: 'categories', label: 'Категории' },
-            { value: 'days', label: 'По дням' },
+            { value: 'categories', label: t('stats.byCategories') },
+            { value: 'days', label: t('stats.byDays') },
           ]}
         />
 
         {spentMinor === 0 ? (
           <GlassCard className="text-center">
             <p className="text-[15px] text-[var(--label-secondary)]">
-              За этот месяц трат ещё нет.
+              {t('stats.noExpenses')}
             </p>
           </GlassCard>
         ) : mode === 'categories' ? (
@@ -250,12 +257,13 @@ function CategoryBar({
   share: number;
   currency: string;
 }) {
+  const { t } = useTranslation();
   return (
     <div>
       <div className="flex items-center gap-2">
         <span className="text-[15px]">{category?.emoji ?? '💸'}</span>
         <span className="min-w-0 flex-1 truncate text-[15px]">
-          {category?.name ?? 'Без категории'}
+          {category?.name ?? t('stats.noCategory')}
         </span>
         <span className="text-[13px] text-[var(--label-secondary)]">
           {Math.round(share * 100)}%
@@ -288,6 +296,7 @@ function DayBars({
   dailyRateMinor: number;
   currency: string;
 }) {
+  const { t } = useTranslation();
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const max = Math.max(dailyRateMinor, ...values, 1);
   const height = 132;
@@ -327,7 +336,7 @@ function DayBars({
             style={{ bottom: (dailyRateMinor / max) * height }}
           >
             <span className="absolute -top-4 right-0 text-[11px] text-[var(--label-tertiary)]">
-              норма {formatCompact(dailyRateMinor, currency)}
+              {t('stats.normLine', { amount: formatCompact(dailyRateMinor, currency) })}
             </span>
           </div>
         )}

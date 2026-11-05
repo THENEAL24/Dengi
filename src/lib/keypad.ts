@@ -5,10 +5,15 @@ export type KeypadKey = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9
 
 const MAX_WHOLE_DIGITS = 9;
 
-export function applyKeypadInput(current: string, key: KeypadKey): string {
+export function applyKeypadInput(
+  current: string,
+  key: KeypadKey,
+  maxFractionDigits: 0 | 2 = 2,
+): string {
   if (key === 'back') return current.slice(0, -1);
 
   if (key === '.') {
+    if (maxFractionDigits === 0) return current;
     if (current.includes('.')) return current;
     return current === '' ? '0.' : `${current}.`;
   }
@@ -17,7 +22,8 @@ export function applyKeypadInput(current: string, key: KeypadKey): string {
   const hasFraction = current.includes('.');
 
   if (hasFraction) {
-    if ((fraction ?? '').length >= 2) return current;
+    if (maxFractionDigits === 0) return current;
+    if ((fraction ?? '').length >= maxFractionDigits) return current;
     return `${current}${key}`;
   }
 

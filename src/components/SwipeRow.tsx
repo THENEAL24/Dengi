@@ -3,6 +3,7 @@ import { animate, motion, useMotionValue } from 'motion/react';
 import { TrashIcon } from './ui/icons';
 import { cn } from '@/lib/cn';
 import { haptic } from '@/lib/haptics';
+import { useTranslation } from '@/state/I18nContext';
 
 const ACTION_WIDTH = 84;
 const SNAP_THRESHOLD = 44;
@@ -16,9 +17,8 @@ type Props = {
 
 /** Свайп влево открывает «Удалить»; резкий свайп до конца удаляет сразу, как в iOS. */
 export function SwipeRow({ children, onDelete }: Props) {
+  const { t } = useTranslation();
   const x = useMotionValue(0);
-  // Строка стеклянная, поэтому на время свайпа ей нужен непрозрачный фон,
-  // иначе красная кнопка просвечивает сквозь содержимое.
   const [raised, setRaised] = useState(false);
 
   const close = () => {
@@ -40,7 +40,7 @@ export function SwipeRow({ children, onDelete }: Props) {
           raised ? 'opacity-100' : 'pointer-events-none opacity-0',
         )}
         style={{ width: ACTION_WIDTH }}
-        aria-label="Удалить"
+        aria-label={t('common.delete')}
       >
         <TrashIcon size={21} />
       </button>
@@ -64,8 +64,6 @@ export function SwipeRow({ children, onDelete }: Props) {
           close();
         }}
         onClickCapture={(event) => {
-          // Сдвинутую строку тап только возвращает на место. Проверяем именно смещение:
-          // onDragEnd приходит позже click, поэтому флаг состояния тут не помог бы.
           if (Math.abs(x.get()) > 4) {
             event.preventDefault();
             event.stopPropagation();

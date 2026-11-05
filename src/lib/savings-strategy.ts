@@ -3,6 +3,8 @@ import { db } from '@/db/db';
 import { baseDailyFromLimit, effectiveDailyAccrual } from '@/lib/budget';
 import { daysInMonth, type IsoDate, monthIdOf } from '@/lib/date';
 import { spentInMonth } from '@/db/repo';
+import { getActiveLocale, translate } from '@/lib/i18n';
+import { formatMoney } from '@/lib/money';
 
 export type StrategyPreview = {
   dailyMinor: number;
@@ -10,16 +12,8 @@ export type StrategyPreview = {
   description: string;
 };
 
-const strategyLabels: Record<SavingsStrategy, string> = {
-  manual: 'Только вручную',
-  remainder: 'Остаток от лимита',
-  fixed: 'Фиксированная сумма',
-  smart: 'По истории трат',
-  goal: 'К цели',
-};
-
-export function strategyLabel(strategy: SavingsStrategy): string {
-  return strategyLabels[strategy];
+export function strategyLabel(strategy: SavingsStrategy, locale = getActiveLocale()): string {
+  return translate(locale, `strategy.${strategy}`);
 }
 
 /** Средний «недотрат» в день по закрытым месяцам с положительным остатком. */
@@ -90,27 +84,26 @@ export async function previewStrategy(
   settings: Settings,
   currentSavingsMinor: number,
 ): Promise<StrategyPreview> {
+  const locale = getActiveLocale();
   const tempSettings = { ...settings, savingsStrategy: strategy };
   const dailyMinor = await dailyAutoSavingsRate(month, tempSettings, currentSavingsMinor);
   const monthlyMinor = Math.round(dailyMinor * month.accrualDays);
+  const baseDaily = formatShort(baseDailyFromLimit(month), settings.currency);
 
-  const descriptions: Record<SavingsStrategy, string> = {
-    manual: 'Автоотложение выключено. Переводы — только вручную.',
-    remainder: `Разница между лимитом (${formatShort(baseDailyFromLimit(month))}/день) и вашей нормой на «доступно».`,
-    fixed: 'Каждый день в копилку уходит фиксированная сумма.',
-    smart: 'Средний положительный остаток по закрытым месяцам, поделённый на дни.',
-    goal: 'Сколько нужно откладывать в день, чтобы достичь цели к сроку.',
-  };
+  const description =
+    strategy === 'remainder'
+      ? translate(locale, 'strategy.preview.remainder', { baseDaily })
+      : translate(locale, `strategy.preview.${strategy}`);
 
   return {
     dailyMinor,
     monthlyMinor,
-    description: descriptions[strategy],
+    description,
   };
 }
 
-function formatShort(minor: number): string {
-  return `${Math.round(minor / 100).toLocaleString('ru-RU')} ₽`;
+function formatShort(minor: number, currency: string): string {
+  return formatMoney(minor, currency, { cents: false, bare: true });
 }
 
 /** ISO-дата по номеру дня в месяце. */

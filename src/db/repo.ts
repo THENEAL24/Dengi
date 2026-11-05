@@ -1,6 +1,5 @@
-import type { BankInboxItem, Category, MonthRecord, SavingsEntry, Settings, TopUp, Tx } from './db';
+import type { AmountRounding, Category, MonthRecord, SavingsEntry, Settings, TopUp, Tx } from './db';
 import { DEFAULT_CATEGORIES, DEFAULT_SETTINGS, db } from './db';
-import { stripBankSmsSecrets } from './bankSmsActions';
 import {
   currentMonthId,
   daysInMonth,
@@ -10,6 +9,9 @@ import {
   type IsoDate,
   type MonthId,
 } from '@/lib/date';
+import { convertAmountMinor } from '@/lib/currencyConvert';
+import { defaultAmountRoundingForCurrency } from '@/lib/currencies';
+import type { Locale } from '@/lib/i18n/locale';
 
 export async function getSettings(): Promise<Settings | undefined> {
   return db.settings.get(1);
@@ -30,6 +32,112 @@ export async function ensureSettings(): Promise<Settings> {
 
 export async function updateSettings(patch: Partial<Omit<Settings, 'id'>>): Promise<void> {
   await db.settings.update(1, patch);
+}
+
+/** Меняет валюту и пересчитывает все суммы по встроенным курсам. */
+export async function changeCurrency(nextCurrency: string): Promise<void> {
+  await db.transaction('rw', [db.settings, db.months, db.tx, db.topUps, db.savings], async () => {
+    const settings = await db.settings.get(1);
+    if (!settings) return;
+    const from = settings.currency;
+    if (from === nextCurrency) return;
+
+    const rounding = defaultAmountRoundingForCurrency(nextCurrency);
+    const cv = (minor: number) => convertAmountMinor(minor, from, nextCurrency, rounding);
+
+    await db.settings.update(1, {
+      currency: nextCurrency,
+      amountRounding: rounding,
+      monthlyLimitMinor: cv(settings.monthlyLimitMinor),
+      ...(settings.dailyAccrualMinor != null && {
+        dailyAccrualMinor: cv(settings.dailyAccrualMinor),
+      }),
+      ...(settings.fixedDailySavingsMinor != null && {
+        fixedDailySavingsMinor: cv(settings.fixedDailySavingsMinor),
+      }),
+      ...(settings.savingsGoalMinor != null && {
+        savingsGoalMinor: cv(settings.savingsGoalMinor),
+      }),
+    });
+
+    const months = await db.months.toArray();
+    for (const month of months) {
+      await db.months.update(month.id, {
+        limitMinor: cv(month.limitMinor),
+        openingBalanceMinor: cv(month.openingBalanceMinor),
+        balanceAdjustmentsMinor: cv(month.balanceAdjustmentsMinor ?? 0),
+        externalTopUpsMinor: cv(month.externalTopUpsMinor ?? 0),
+        ...(month.dailyAccrualMinor != null && {
+          dailyAccrualMinor: cv(month.dailyAccrualMinor),
+        }),
+        ...(month.closingBalanceMinor != null && {
+          closingBalanceMinor: cv(month.closingBalanceMinor),
+        }),
+      });
+    }
+
+    await db.tx.toCollection().modify((tx) => {
+      tx.amountMinor = cv(tx.amountMinor);
+    });
+
+    await db.topUps.toCollection().modify((topUp) => {
+      topUp.amountMinor = cv(topUp.amountMinor);
+    });
+
+    await db.savings.toCollection().modify((entry) => {
+      entry.amountMinor = cv(entry.amountMinor);
+    });
+  });
+}
+
+/** После смены режима округления — подогнать суммы в текущей валюте. */
+export async function applyAmountRounding(rounding: AmountRounding): Promise<void> {
+  await db.transaction('rw', [db.settings, db.months, db.tx, db.topUps, db.savings], async () => {
+    const settings = await db.settings.get(1);
+    if (!settings) return;
+    const currency = settings.currency;
+    const norm = (minor: number) => convertAmountMinor(minor, currency, currency, rounding);
+
+    await db.settings.update(1, {
+      amountRounding: rounding,
+      monthlyLimitMinor: norm(settings.monthlyLimitMinor),
+      ...(settings.dailyAccrualMinor != null && {
+        dailyAccrualMinor: norm(settings.dailyAccrualMinor),
+      }),
+      ...(settings.fixedDailySavingsMinor != null && {
+        fixedDailySavingsMinor: norm(settings.fixedDailySavingsMinor),
+      }),
+      ...(settings.savingsGoalMinor != null && {
+        savingsGoalMinor: norm(settings.savingsGoalMinor),
+      }),
+    });
+
+    const months = await db.months.toArray();
+    for (const month of months) {
+      await db.months.update(month.id, {
+        limitMinor: norm(month.limitMinor),
+        openingBalanceMinor: norm(month.openingBalanceMinor),
+        balanceAdjustmentsMinor: norm(month.balanceAdjustmentsMinor ?? 0),
+        externalTopUpsMinor: norm(month.externalTopUpsMinor ?? 0),
+        ...(month.dailyAccrualMinor != null && {
+          dailyAccrualMinor: norm(month.dailyAccrualMinor),
+        }),
+        ...(month.closingBalanceMinor != null && {
+          closingBalanceMinor: norm(month.closingBalanceMinor),
+        }),
+      });
+    }
+
+    await db.tx.toCollection().modify((tx) => {
+      tx.amountMinor = norm(tx.amountMinor);
+    });
+    await db.topUps.toCollection().modify((topUp) => {
+      topUp.amountMinor = norm(topUp.amountMinor);
+    });
+    await db.savings.toCollection().modify((entry) => {
+      entry.amountMinor = norm(entry.amountMinor);
+    });
+  });
 }
 
 /** Проверка и вставка идут одной транзакцией: иначе два параллельных вызова
@@ -99,7 +207,6 @@ export async function addTx(input: {
   amountMinor: number;
   categoryId?: number;
   note?: string;
-  bankEventId?: string;
 }): Promise<number> {
   const monthId = monthIdOf(input.date);
   await ensureMonth(monthId);
@@ -109,7 +216,6 @@ export async function addTx(input: {
     amountMinor: input.amountMinor,
     categoryId: input.categoryId,
     note: input.note?.trim() || undefined,
-    bankEventId: input.bankEventId,
     createdAt: Date.now(),
   } as Tx)) as number;
 }
@@ -240,40 +346,36 @@ export type Snapshot = {
   topUps: TopUp[];
   categories: Category[];
   savings: SavingsEntry[];
-  bankInbox?: BankInboxItem[];
 };
 
 export async function exportSnapshot(): Promise<Snapshot> {
-  const [settings, months, tx, topUps, categories, savings, bankInbox] = await Promise.all([
+  const [settings, months, tx, topUps, categories, savings] = await Promise.all([
     db.settings.get(1),
     db.months.toArray(),
     db.tx.toArray(),
     db.topUps.toArray(),
     db.categories.toArray(),
     db.savings.toArray(),
-    db.bankInbox.toArray(),
   ]);
-  const safeSettings = settings ? stripBankSmsSecrets(settings) : undefined;
   return {
     app: 'dengi',
     version: 3,
     exportedAt: new Date().toISOString(),
-    settings: safeSettings,
+    settings,
     months,
     tx,
     topUps,
     categories,
     savings,
-    bankInbox,
   };
 }
 
 export async function importSnapshot(snapshot: Snapshot): Promise<void> {
-  if (snapshot?.app !== 'dengi') throw new Error('Файл не похож на резервную копию «Деньги»');
+  if (snapshot?.app !== 'dengi') throw new Error('error.badBackupFile');
 
   await db.transaction(
     'rw',
-    [db.settings, db.months, db.tx, db.topUps, db.categories, db.savings, db.bankInbox],
+    [db.settings, db.months, db.tx, db.topUps, db.categories, db.savings],
     async () => {
       await Promise.all([
         db.settings.clear(),
@@ -282,24 +384,13 @@ export async function importSnapshot(snapshot: Snapshot): Promise<void> {
         db.topUps.clear(),
         db.categories.clear(),
         db.savings.clear(),
-        db.bankInbox.clear(),
       ]);
-      if (snapshot.settings) {
-        await db.settings.put({
-          ...snapshot.settings,
-          bankSmsEnabled: false,
-          bankSmsSyncSecret: undefined,
-          bankSmsIngressKey: undefined,
-          bankSmsWebhookToken: undefined,
-          bankSmsSyncDeviceId: undefined,
-        });
-      }
+      if (snapshot.settings) await db.settings.put(snapshot.settings);
       if (snapshot.months?.length) await db.months.bulkPut(snapshot.months);
       if (snapshot.tx?.length) await db.tx.bulkPut(snapshot.tx);
       if (snapshot.topUps?.length) await db.topUps.bulkPut(snapshot.topUps);
       if (snapshot.categories?.length) await db.categories.bulkPut(snapshot.categories);
       if (snapshot.savings?.length) await db.savings.bulkPut(snapshot.savings);
-      if (snapshot.bankInbox?.length) await db.bankInbox.bulkPut(snapshot.bankInbox);
     },
   );
 }
@@ -307,7 +398,7 @@ export async function importSnapshot(snapshot: Snapshot): Promise<void> {
 export async function resetAll(): Promise<void> {
   await db.transaction(
     'rw',
-    [db.settings, db.months, db.tx, db.topUps, db.categories, db.savings, db.bankInbox],
+    [db.settings, db.months, db.tx, db.topUps, db.categories, db.savings],
     async () => {
       await Promise.all([
         db.settings.clear(),
@@ -316,7 +407,6 @@ export async function resetAll(): Promise<void> {
         db.topUps.clear(),
         db.categories.clear(),
         db.savings.clear(),
-        db.bankInbox.clear(),
       ]);
     },
   );
@@ -330,13 +420,17 @@ export async function completeOnboarding(input: {
   /** Остаток или долг, с которым пользователь входит в первый месяц */
   openingBalanceMinor?: number;
   currency?: string;
+  locale?: Locale;
 }): Promise<void> {
   const monthId = monthIdOf(input.startDate);
 
   await db.transaction('rw', db.settings, db.months, db.categories, db.savings, async () => {
+    const currency = input.currency ?? 'RUB';
     await db.settings.put({
       ...DEFAULT_SETTINGS,
-      currency: input.currency ?? 'RUB',
+      currency,
+      amountRounding: defaultAmountRoundingForCurrency(currency),
+      locale: input.locale ?? DEFAULT_SETTINGS.locale,
       monthlyLimitMinor: input.monthlyLimitMinor,
       startDate: input.startDate,
       onboarded: true,

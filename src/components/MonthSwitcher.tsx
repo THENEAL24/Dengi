@@ -2,6 +2,7 @@ import { ChevronLeftIcon, ChevronRightIcon } from './ui/icons';
 import { cn } from '@/lib/cn';
 import { monthTitle } from '@/lib/date';
 import { haptic } from '@/lib/haptics';
+import { useTranslation } from '@/state/I18nContext';
 
 type Props = {
   monthId: string;
@@ -11,6 +12,7 @@ type Props = {
 };
 
 export function MonthSwitcher({ monthId, monthIds, onChange }: Props) {
+  const { t } = useTranslation();
   const index = monthIds.indexOf(monthId);
   const hasOlder = index >= 0 && index < monthIds.length - 1;
   const hasNewer = index > 0;
@@ -24,11 +26,11 @@ export function MonthSwitcher({ monthId, monthIds, onChange }: Props) {
 
   return (
     <div className="flex items-center justify-between px-[var(--page-gutter)] pb-2">
-      <ArrowButton disabled={!hasOlder} onClick={() => step(1)} label="Предыдущий месяц">
+      <ArrowButton disabled={!hasOlder} onClick={() => step(1)} label={t('monthSwitcher.prev')}>
         <ChevronLeftIcon size={20} />
       </ArrowButton>
       <span className="text-[17px] font-semibold">{monthTitle(monthId)}</span>
-      <ArrowButton disabled={!hasNewer} onClick={() => step(-1)} label="Следующий месяц">
+      <ArrowButton disabled={!hasNewer} onClick={() => step(-1)} label={t('monthSwitcher.next')}>
         <ChevronRightIcon size={20} />
       </ArrowButton>
     </div>

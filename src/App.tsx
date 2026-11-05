@@ -6,7 +6,7 @@ import { TabBar, type TabKey } from '@/components/ui/TabBar';
 import type { Tx } from '@/db/db';
 import { syncAutoSavings } from '@/db/balanceActions';
 import { seedCategoriesIfEmpty } from '@/db/repo';
-import { syncBankSmsIfEnabled } from '@/sync/bankSmsSync';
+import { hydrateExchangeRates, refreshExchangeRatesOnline } from '@/lib/exchangeRates';
 import { History } from '@/screens/History';
 import { Onboarding } from '@/screens/Onboarding';
 import { Settings } from '@/screens/Settings';
@@ -37,30 +37,30 @@ export function App() {
 
   useEffect(() => {
     void seedCategoriesIfEmpty();
+    void hydrateExchangeRates();
+  }, []);
+
+  useEffect(() => {
+    const syncRates = () => {
+      if (!navigator.onLine) return;
+      void refreshExchangeRatesOnline();
+    };
+    syncRates();
+    window.addEventListener('online', syncRates);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') syncRates();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      window.removeEventListener('online', syncRates);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, []);
 
   useEffect(() => {
     if (!settings?.onboarded) return;
     void syncAutoSavings(today);
   }, [settings?.onboarded, today]);
-
-  useEffect(() => {
-    if (!settings?.bankSmsEnabled || !settings.bankSmsSyncSecret) return;
-
-    const run = () => void syncBankSmsIfEnabled();
-    run();
-
-    const onVisible = () => {
-      if (document.visibilityState === 'visible') run();
-    };
-    document.addEventListener('visibilitychange', onVisible);
-    const timer = window.setInterval(run, 45_000);
-
-    return () => {
-      document.removeEventListener('visibilitychange', onVisible);
-      window.clearInterval(timer);
-    };
-  }, [settings?.bankSmsEnabled, settings?.bankSmsSyncSecret]);
 
   const openNewExpense = () => setExpense({ open: true, editing: null });
   const openEditExpense = (tx: Tx) => setExpense({ open: true, editing: tx });

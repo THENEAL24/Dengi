@@ -1,7 +1,12 @@
 import Dexie, { type EntityTable } from 'dexie';
 import type { IsoDate, MonthId } from '@/lib/date';
 
+import type { Locale } from '@/lib/i18n/locale';
+
 export type Theme = 'auto' | 'dark' | 'light';
+
+/** Как округлять суммы после пересчёта и в интерфейсе */
+export type AmountRounding = 'precise' | 'whole';
 
 /** Как считается ежедневное автоотложение в копилку */
 export type SavingsStrategy = 'manual' | 'remainder' | 'fixed' | 'smart' | 'goal';
@@ -9,7 +14,10 @@ export type SavingsStrategy = 'manual' | 'remainder' | 'fixed' | 'smart' | 'goal
 export interface Settings {
   id: 1;
   currency: string;
+  locale: Locale;
   theme: Theme;
+  /** precise — копейки/центы; whole — до целых единиц валюты */
+  amountRounding: AmountRounding;
   onboarded: boolean;
   /** Базовый месячный лимит: применяется ко всем новым месяцам */
   monthlyLimitMinor: number;
@@ -24,31 +32,11 @@ export interface Settings {
   savingsGoalMinor?: number;
   /** За сколько месяцев достичь цели (goal) */
   savingsGoalMonths?: number;
-  /** Запись трат из SMS банка (Сбер, отправитель 9-00 / 900) */
-  bankSmsEnabled?: boolean;
-  bankSmsMode?: 'inbox' | 'auto';
-  bankSmsSyncDeviceId?: string;
-  bankSmsWebhookToken?: string;
-  bankSmsSyncSecret?: string;
-  bankSmsIngressKey?: string;
-  bankSmsLastSyncAt?: number;
-  bankSmsLastSyncCursor?: string;
-  createdAt: number;
-}
-
-export type BankInboxStatus = 'pending' | 'accepted' | 'rejected';
-
-export interface BankInboxItem {
-  id?: number;
-  serverEventId: string;
-  contentId: string;
-  kind: 'expense' | 'income' | 'unknown';
-  amountMinor?: number;
-  date: IsoDate;
-  merchant?: string;
-  rawPreview: string;
-  suggestedCategoryId?: number;
-  status: BankInboxStatus;
+  /** Кэш курсов: major-единиц валюты за 1 USD */
+  exchangeRatesMajorPerUsd?: Record<string, number>;
+  exchangeRatesUpdatedAt?: number;
+  /** Дата котировок из API (YYYY-MM-DD) */
+  exchangeRatesDate?: string;
   createdAt: number;
 }
 
@@ -89,7 +77,6 @@ export interface Tx {
   amountMinor: number;
   categoryId?: number;
   note?: string;
-  bankEventId?: string;
   createdAt: number;
 }
 
@@ -100,7 +87,6 @@ export interface TopUp {
   date: IsoDate;
   amountMinor: number;
   note?: string;
-  bankEventId?: string;
   createdAt: number;
 }
 
@@ -139,7 +125,6 @@ export class DengiDb extends Dexie {
   topUps!: EntityTable<TopUp, 'id'>;
   categories!: EntityTable<Category, 'id'>;
   savings!: EntityTable<SavingsEntry, 'id'>;
-  bankInbox!: EntityTable<BankInboxItem, 'id'>;
 
   constructor() {
     super('dengi');
@@ -231,9 +216,71 @@ export class DengiDb extends Dexie {
         await tx
           .table('settings')
           .toCollection()
-          .modify((settings: Settings) => {
+          .modify((settings: Record<string, unknown>) => {
             settings.bankSmsEnabled ??= false;
             settings.bankSmsMode ??= 'inbox';
+          });
+      });
+
+    this.version(6)
+      .stores({
+        settings: 'id',
+        months: 'id, status',
+        tx: '++id, monthId, date, categoryId, createdAt',
+        topUps: '++id, monthId, date, createdAt',
+        categories: '++id, order',
+        savings: '++id, date, kind, monthId',
+      })
+      .upgrade(async (tx) => {
+        await tx
+          .table('settings')
+          .toCollection()
+          .modify((settings: Record<string, unknown>) => {
+            delete settings.bankSmsEnabled;
+            delete settings.bankSmsMode;
+            delete settings.bankSmsSyncDeviceId;
+            delete settings.bankSmsWebhookToken;
+            delete settings.bankSmsSyncSecret;
+            delete settings.bankSmsIngressKey;
+            delete settings.bankSmsLastSyncAt;
+            delete settings.bankSmsLastSyncCursor;
+          });
+        await tx.table('bankInbox').clear();
+      });
+
+    this.version(7)
+      .stores({
+        settings: 'id',
+        months: 'id, status',
+        tx: '++id, monthId, date, categoryId, createdAt',
+        topUps: '++id, monthId, date, createdAt',
+        categories: '++id, order',
+        savings: '++id, date, kind, monthId',
+      })
+      .upgrade(async (tx) => {
+        await tx
+          .table('settings')
+          .toCollection()
+          .modify((settings: Record<string, unknown>) => {
+            settings.amountRounding ??= 'precise';
+          });
+      });
+
+    this.version(8)
+      .stores({
+        settings: 'id',
+        months: 'id, status',
+        tx: '++id, monthId, date, categoryId, createdAt',
+        topUps: '++id, monthId, date, createdAt',
+        categories: '++id, order',
+        savings: '++id, date, kind, monthId',
+      })
+      .upgrade(async (tx) => {
+        await tx
+          .table('settings')
+          .toCollection()
+          .modify((settings: Record<string, unknown>) => {
+            settings.locale ??= 'ru';
           });
       });
   }
@@ -257,12 +304,12 @@ export const DEFAULT_CATEGORIES: Array<Omit<Category, 'id'>> = [
 export const DEFAULT_SETTINGS: Omit<Settings, 'createdAt' | 'startDate'> = {
   id: 1,
   currency: 'RUB',
+  locale: 'ru',
   theme: 'auto',
+  amountRounding: 'whole',
   onboarded: false,
   monthlyLimitMinor: 0,
   dailyAccrualMinor: null,
   savingsStrategy: 'remainder',
   savingsGoalMonths: 12,
-  bankSmsEnabled: false,
-  bankSmsMode: 'inbox',
 };

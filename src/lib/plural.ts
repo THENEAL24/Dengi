@@ -1,3 +1,5 @@
+import { getActiveLocale, translate, type Locale } from '@/lib/i18n';
+
 /** Русские склонения: [1, 2-4, 5-0] */
 export function plural(count: number, forms: [string, string, string]): string {
   const mod10 = count % 10;
@@ -7,14 +9,25 @@ export function plural(count: number, forms: [string, string, string]): string {
   return forms[2];
 }
 
-export function pluralDays(count: number): string {
-  return `${count} ${plural(count, ['день', 'дня', 'дней'])}`;
+function pluralForms(kind: 'day' | 'tx' | 'topUp', locale: Locale): [string, string, string] {
+  return [
+    translate(locale, `plural.${kind}.one`),
+    translate(locale, `plural.${kind}.few`),
+    translate(locale, `plural.${kind}.many`),
+  ];
 }
 
-export function pluralTx(count: number): string {
-  return `${count} ${plural(count, ['трата', 'траты', 'трат'])}`;
+export function pluralDays(count: number, locale = getActiveLocale()): string {
+  if (locale === 'en') return count === 1 ? `${count} day` : `${count} days`;
+  return `${count} ${plural(count, pluralForms('day', locale))}`;
 }
 
-export function pluralTopUp(count: number): string {
-  return `${count} ${plural(count, ['зачисление', 'зачисления', 'зачислений'])}`;
+export function pluralTx(count: number, locale = getActiveLocale()): string {
+  if (locale === 'en') return count === 1 ? `${count} expense` : `${count} expenses`;
+  return `${count} ${plural(count, pluralForms('tx', locale))}`;
+}
+
+export function pluralTopUp(count: number, locale = getActiveLocale()): string {
+  if (locale === 'en') return count === 1 ? `${count} top-up` : `${count} top-ups`;
+  return `${count} ${plural(count, pluralForms('topUp', locale))}`;
 }

@@ -9,16 +9,7 @@ import { addSavings, deleteSavings, listSavings } from '@/db/repo';
 import { cn } from '@/lib/cn';
 import { fullDate, todayIso } from '@/lib/date';
 import { formatMoney } from '@/lib/money';
-
-const kindLabels: Record<SavingsKind, string> = {
-  initial: 'Начальная сумма',
-  rollover: 'Остаток месяца',
-  cover: 'Покрытие перерасхода',
-  manual: 'Вручную',
-  from_budget: 'Из доступных',
-  to_budget: 'В доступные',
-  auto_daily: 'Автоотложение',
-};
+import { useTranslation } from '@/state/I18nContext';
 
 type Props = {
   open: boolean;
@@ -39,22 +30,25 @@ export function SavingsSheet({
   onTransferFromSavings,
   onTransferToSavings,
 }: Props) {
+  const { t } = useTranslation();
   const entries = useLiveQuery(() => listSavings(), [], []);
   const [amountOpen, setAmountOpen] = useState(false);
+
+  const kindLabel = (kind: SavingsKind) => t(`savings.kind.${kind}`);
 
   return (
     <>
       <Sheet
         open={open}
         onClose={onClose}
-        title="Копилка"
+        title={t('savings.title')}
         action={
           <button
             type="button"
             onClick={onClose}
             className="text-[17px] font-semibold text-[var(--link)]"
           >
-            Готово
+            {t('common.done')}
           </button>
         }
         className="max-h-[86dvh]"
@@ -67,30 +61,32 @@ export function SavingsSheet({
           <div className="mt-4 grid grid-cols-2 gap-2">
             {onTransferToSavings && (
               <Button full variant="tinted" onClick={onTransferToSavings}>
-                Из доступных
+                {t('savings.fromAvailable')}
               </Button>
             )}
             {onTransferFromSavings && (
               <Button full variant="plain" onClick={onTransferFromSavings}>
-                В доступные
+                {t('savings.toAvailable')}
               </Button>
             )}
           </div>
 
           <Button full variant="plain" className="mt-2" onClick={() => setAmountOpen(true)}>
-            Пополнить или снять вручную
+            {t('savings.manualAdjust')}
           </Button>
 
           {balanceMinor !== undefined && (
             <p className="mt-2 text-center text-[13px] text-[var(--label-tertiary)]">
-              Доступно сейчас: {formatMoney(balanceMinor, currency, { cents: false, signed: true })}
+              {t('savings.availableLine', {
+                amount: formatMoney(balanceMinor, currency, { cents: 'auto', signed: true }),
+              })}
             </p>
           )}
 
           <div className="scroll-y mt-4 max-h-[46dvh]">
             {entries.length === 0 ? (
               <p className="py-6 text-center text-[15px] text-[var(--label-secondary)]">
-                Операций пока нет
+                {t('savings.noEntries')}
               </p>
             ) : (
               <div className="glass overflow-hidden rounded-[var(--radius-card)]">
@@ -103,9 +99,11 @@ export function SavingsSheet({
                     )}
                   >
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-[16px]">{entry.note ?? kindLabels[entry.kind]}</p>
+                      <p className="truncate text-[16px]">
+                        {entry.note ?? kindLabel(entry.kind)}
+                      </p>
                       <p className="text-[13px] text-[var(--label-secondary)]">
-                        {fullDate(entry.date)} · {kindLabels[entry.kind]}
+                        {fullDate(entry.date)} · {kindLabel(entry.kind)}
                       </p>
                     </div>
                     <span
@@ -120,7 +118,7 @@ export function SavingsSheet({
                       type="button"
                       onClick={() => entry.id && void deleteSavings(entry.id)}
                       className="pressable grid size-8 place-items-center rounded-full text-[var(--label-tertiary)]"
-                      aria-label="Удалить операцию"
+                      aria-label={t('savings.deleteEntryAria')}
                     >
                       <TrashIcon size={16} />
                     </button>
@@ -135,11 +133,11 @@ export function SavingsSheet({
       <AmountSheet
         open={amountOpen}
         onClose={() => setAmountOpen(false)}
-        title="Операция с копилкой"
-        hint="Пополнение или снятие не влияет на месячный бюджет — копилка живёт отдельно."
+        title={t('savings.manualTitle')}
+        hint={t('savings.manualHint')}
         currency={currency}
         signed
-        submitLabel="Применить"
+        submitLabel={t('common.apply')}
         onSubmit={(minor) =>
           addSavings({ date: todayIso(), amountMinor: minor, kind: 'manual' })
         }

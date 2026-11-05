@@ -3,9 +3,12 @@ import { createRoot } from 'react-dom/client';
 import '@/pwa';
 import '@/styles/index.css';
 import { App } from '@/App';
+import { I18nProvider } from '@/state/I18nContext';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <I18nProvider>
+      <App />
+    </I18nProvider>
   </StrictMode>,
 );

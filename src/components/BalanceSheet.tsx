@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { AmountSheet } from './AmountSheet';
 import { Button } from './ui/Button';
 import { Sheet } from './ui/Sheet';
 import { topUpAvailable, transferFromSavings, transferToSavings } from '@/db/balanceActions';
 import { formatMoney } from '@/lib/money';
+import { translateMaybe } from '@/lib/i18n';
+import { useTranslation } from '@/state/I18nContext';
 
 type Mode = 'to_savings' | 'from_savings' | 'topup';
 
@@ -15,27 +17,32 @@ type Props = {
   savingsMinor: number;
 };
 
-const modes: Array<{ id: Mode; label: string; hint: string }> = [
-  {
-    id: 'to_savings',
-    label: 'В копилку',
-    hint: 'Перевести из доступных в копилку. Сумма сразу уменьшит «Доступно».',
-  },
-  {
-    id: 'from_savings',
-    label: 'Из копилки',
-    hint: 'Перевести из копилки в доступные. Можно потратить сразу.',
-  },
-  {
-    id: 'topup',
-    label: 'Пополнить',
-    hint: 'Добавить к «Доступно» сверх лимита — например, если пришли деньги.',
-  },
-];
-
 export function BalanceSheet({ open, onClose, currency, balanceMinor, savingsMinor }: Props) {
+  const { t, locale } = useTranslation();
   const [mode, setMode] = useState<Mode | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const modes = useMemo(
+    () =>
+      [
+        {
+          id: 'to_savings' as const,
+          label: t('balance.toSavings'),
+          hint: t('balance.toSavingsHint'),
+        },
+        {
+          id: 'from_savings' as const,
+          label: t('balance.fromSavings'),
+          hint: t('balance.fromSavingsHint'),
+        },
+        {
+          id: 'topup' as const,
+          label: t('balance.topUp'),
+          hint: t('balance.topUpHint'),
+        },
+      ] as const,
+    [t],
+  );
 
   const active = modes.find((item) => item.id === mode);
 
@@ -48,7 +55,8 @@ export function BalanceSheet({ open, onClose, currency, balanceMinor, savingsMin
       setMode(null);
       onClose();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Не удалось выполнить операцию');
+      const message = cause instanceof Error ? cause.message : 'error.operationFailed';
+      setError(translateMaybe(locale, message));
     }
   };
 
@@ -57,17 +65,19 @@ export function BalanceSheet({ open, onClose, currency, balanceMinor, savingsMin
       <Sheet
         open={open && mode === null}
         onClose={onClose}
-        title="Доступные средства"
+        title={t('balance.title')}
         className="max-h-[80dvh]"
       >
         <div className="px-4 pb-4">
           <div className="glass rounded-[var(--radius-card)] p-4 text-center">
-            <p className="text-[13px] text-[var(--label-secondary)]">Сейчас доступно</p>
+            <p className="text-[13px] text-[var(--label-secondary)]">{t('balance.availableNow')}</p>
             <p className="money mt-1 text-[36px] font-bold">
-              {formatMoney(balanceMinor, currency, { cents: false, signed: true })}
+              {formatMoney(balanceMinor, currency, { cents: 'auto', signed: true })}
             </p>
             <p className="mt-2 text-[14px] text-[var(--label-secondary)]">
-              Копилка: {formatMoney(savingsMinor, currency, { cents: false })}
+              {t('balance.savingsLine', {
+                amount: formatMoney(savingsMinor, currency, { cents: false }),
+              })}
             </p>
           </div>
 
@@ -99,7 +109,7 @@ export function BalanceSheet({ open, onClose, currency, balanceMinor, savingsMin
         title={active?.label ?? ''}
         hint={active?.hint}
         currency={currency}
-        submitLabel="Применить"
+        submitLabel={t('common.apply')}
         onSubmit={submit}
       />
     </>

@@ -18,7 +18,7 @@ function fontSizeFor(length: number): number {
 }
 
 export function AmountDisplay({ digits, currency, className, placeholderDimmed = true }: Props) {
-  const text = keypadDisplay(digits);
+  const text = keypadDisplay(digits, currency);
   const empty = digits === '';
   const size = fontSizeFor(text.length);
 

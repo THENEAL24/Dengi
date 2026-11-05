@@ -1,24 +1,32 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { AmountDisplay } from '@/components/AmountDisplay';
+import { CurrencyPickerList } from '@/components/CurrencyPickerList';
 import { Keypad } from '@/components/Keypad';
 import { Button } from '@/components/ui/Button';
 import { ChevronLeftIcon } from '@/components/ui/icons';
 import { completeOnboarding } from '@/db/repo';
 import { allowanceFor, dailyRateFor } from '@/lib/budget';
 import { cn } from '@/lib/cn';
+import { getCurrency } from '@/lib/currencies';
 import { dayOf, daysInMonth, fullDate, monthIdOf, todayIso } from '@/lib/date';
 import { pluralDays } from '@/lib/plural';
 import { formatMoney, keypadToMinor } from '@/lib/money';
+import { useTranslation } from '@/state/I18nContext';
+import { setActiveLocale } from '@/lib/i18n';
+import type { Locale } from '@/lib/i18n/locale';
+import { LocaleSwitcher } from '@/components/ui/LocaleSwitcher';
 
-const CURRENCY = 'RUB';
-const STEPS = 5;
+const STEPS = 7;
 
 type StartMode = 'today' | 'custom';
 
 export function Onboarding() {
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState(1);
+  const [locale, setLocale] = useState<Locale>('ru');
+  const { t } = useTranslation(locale);
+  const [currency, setCurrency] = useState('RUB');
   const [limit, setLimit] = useState('');
   const [savings, setSavings] = useState('');
   const [startMode, setStartMode] = useState<StartMode>('today');
@@ -29,10 +37,11 @@ export function Onboarding() {
 
   const today = todayIso();
   const startDate = startMode === 'today' ? today : customDate;
+  const currencyMeta = getCurrency(currency);
 
-  const limitMinor = keypadToMinor(limit);
-  const savingsMinor = keypadToMinor(savings);
-  const openingMinor = keypadToMinor(opening) * openingSign;
+  const limitMinor = keypadToMinor(limit, currency);
+  const savingsMinor = keypadToMinor(savings, currency);
+  const openingMinor = keypadToMinor(opening, currency) * openingSign;
 
   const accrualDays = useMemo(() => {
     const monthId = monthIdOf(startDate);
@@ -44,7 +53,6 @@ export function Onboarding() {
     [limitMinor, startDate],
   );
 
-  // за прошедшие до старта дни ничего не начисляется, поэтому первый месяц может быть короче
   const firstMonthAllowance = useMemo(
     () => allowanceFor(limitMinor, monthIdOf(startDate), dayOf(startDate)),
     [limitMinor, startDate],
@@ -55,6 +63,10 @@ export function Onboarding() {
     setStep(next);
   };
 
+  useEffect(() => {
+    setActiveLocale(locale);
+  }, [locale]);
+
   const finish = async () => {
     setSaving(true);
     try {
@@ -63,12 +75,17 @@ export function Onboarding() {
         savingsMinor,
         startDate,
         openingBalanceMinor: openingMinor,
-        currency: CURRENCY,
+        currency,
+        locale,
       });
     } finally {
       setSaving(false);
     }
   };
+
+  const localeSwitcher = (
+    <LocaleSwitcher value={locale} onChange={setLocale} layoutId="onboarding-locale" />
+  );
 
   return (
     <div className="flex h-dvh flex-col" style={{ paddingTop: 'calc(var(--safe-top) + 8px)' }}>
@@ -80,7 +97,7 @@ export function Onboarding() {
             'pressable -ml-2 grid size-9 place-items-center rounded-full',
             step === 0 && 'pointer-events-none opacity-0',
           )}
-          aria-label="Назад"
+          aria-label={t('common.back')}
         >
           <ChevronLeftIcon size={22} className="text-[var(--link)]" />
         </button>
@@ -95,7 +112,7 @@ export function Onboarding() {
             />
           ))}
         </div>
-        <div className="size-9" />
+        <div className="size-9 shrink-0" />
       </div>
 
       <AnimatePresence initial={false} mode="wait" custom={direction}>
@@ -109,61 +126,116 @@ export function Onboarding() {
         >
           {step === 0 && (
             <StepShell
-              title="Сколько можно тратить в месяц?"
-              hint="Это фиксированная сумма на месяц. Приложение разделит её по дням и будет ежедневно пополнять бюджет."
+              titleTrailing={localeSwitcher}
+              title={t('app.name')}
+              center
               footer={
-                <Button size="lg" full disabled={limitMinor <= 0} onClick={() => go(1)}>
-                  Далее
+                <Button size="lg" full onClick={() => go(1)}>
+                  {t('common.continue')}
                 </Button>
               }
             >
-              <AmountDisplay digits={limit} currency={CURRENCY} />
-              <p className="mt-3 text-center text-[15px] text-[var(--label-secondary)]">
-                {limitMinor > 0
-                  ? `≈ ${formatMoney(dailyRate, CURRENCY, { cents: false })} в день`
-                  : 'Например, 60 000'}
-              </p>
-              <Keypad value={limit} onChange={setLimit} className="mt-auto" />
+              <div className="flex flex-col items-center text-center">
+                <p className="text-[13px] font-medium tracking-wide text-[var(--label-secondary)] uppercase">
+                  {t('app.available')}
+                </p>
+                <p className="money mt-2 text-[56px] leading-none font-bold tracking-tight text-[var(--label)]">
+                  1&nbsp;234&nbsp;₽
+                </p>
+                <p className="mt-6 max-w-[300px] text-[17px] leading-snug text-[var(--label-secondary)]">
+                  {t('onboarding.intro')}
+                </p>
+                <ul className="mt-8 w-full max-w-[320px] space-y-3 text-left text-[15px] text-[var(--label-secondary)]">
+                  <li className="flex gap-3">
+                    <span className="text-[var(--link)]">·</span>
+                    <span>{t('onboarding.bullet.expenses')}</span>
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="text-[var(--link)]">·</span>
+                    <span>{t('onboarding.bullet.savings')}</span>
+                  </li>
+                </ul>
+              </div>
             </StepShell>
           )}
 
           {step === 1 && (
             <StepShell
-              title="Сколько уже накоплено?"
-              hint="Копилка живёт отдельно от месячного бюджета. В конце месяца остаток можно отправлять туда, а перерасход — покрывать из неё."
+              titleTrailing={localeSwitcher}
+              title={t('currency.label')}
+              hint={t('onboarding.currencyHint')}
+              compactBody
               footer={
                 <Button size="lg" full onClick={() => go(2)}>
-                  {savingsMinor > 0 ? 'Далее' : 'Пропустить'}
+                  {t('common.continue')}
                 </Button>
               }
             >
-              <AmountDisplay digits={savings} currency={CURRENCY} />
-              <p className="mt-3 text-center text-[15px] text-[var(--label-secondary)]">
-                Можно оставить ноль и заполнить позже
-              </p>
-              <Keypad value={savings} onChange={setSavings} className="mt-auto" />
+              <CurrencyPickerList value={currency} onChange={setCurrency} className="-mx-1 px-1" />
             </StepShell>
           )}
 
           {step === 2 && (
             <StepShell
-              title="С какого дня начинаем?"
-              hint="Бюджет начнёт пополняться с этого дня. За дни до старта ничего не начисляется — прошлые траты приложение не знает."
+              titleTrailing={localeSwitcher}
+              title={t('settings.monthlyLimit')}
+              hint={t('onboarding.limitHint')}
               footer={
-                <Button size="lg" full onClick={() => go(3)}>
-                  Далее
+                <Button size="lg" full disabled={limitMinor <= 0} onClick={() => go(3)}>
+                  {t('common.continue')}
+                </Button>
+              }
+            >
+              <AmountDisplay digits={limit} currency={currency} />
+              <p className="mt-3 text-center text-[15px] text-[var(--label-secondary)]">
+                {limitMinor > 0
+                  ? t('onboarding.dailyApprox', { amount: formatMoney(dailyRate, currency, { cents: 'auto' }) })
+                  : currency === 'RUB'
+                    ? t('onboarding.limitExampleRub')
+                    : currency === 'USD'
+                      ? t('onboarding.limitExampleUsd')
+                      : t('onboarding.enterAmount')}
+              </p>
+              <Keypad value={limit} onChange={setLimit} currency={currency} className="mt-auto" />
+            </StepShell>
+          )}
+
+          {step === 3 && (
+            <StepShell
+              titleTrailing={localeSwitcher}
+              title={t('settings.savings')}
+              hint={t('onboarding.savingsHint')}
+              footer={
+                <Button size="lg" full onClick={() => go(4)}>
+                  {savingsMinor > 0 ? t('common.continue') : t('common.skip')}
+                </Button>
+              }
+            >
+              <AmountDisplay digits={savings} currency={currency} />
+              <Keypad value={savings} onChange={setSavings} currency={currency} className="mt-auto" />
+            </StepShell>
+          )}
+
+          {step === 4 && (
+            <StepShell
+              titleTrailing={localeSwitcher}
+              title={t('onboarding.startDayTitle')}
+              hint={t('onboarding.startHint')}
+              footer={
+                <Button size="lg" full onClick={() => go(5)}>
+                  {t('common.continue')}
                 </Button>
               }
             >
               <div className="space-y-2">
                 <OptionRow
-                  label="С сегодня"
+                  label={t('onboarding.fromToday')}
                   value={fullDate(today)}
                   active={startMode === 'today'}
                   onClick={() => setStartMode('today')}
                 />
                 <OptionRow
-                  label="Своя дата"
+                  label={t('onboarding.otherDate')}
                   active={startMode === 'custom'}
                   onClick={() => setStartMode('custom')}
                   value={
@@ -181,87 +253,92 @@ export function Onboarding() {
                 />
               </div>
 
-              <div className="glass mt-4 rounded-[var(--radius-card)] p-4">
-                <p className="text-[15px] text-[var(--label-secondary)]">
-                  {formatMoney(limitMinor, CURRENCY, { cents: false })} на{' '}
-                  {pluralDays(daysInMonth(monthIdOf(startDate)))} месяца
-                </p>
-                <p className="money mt-1 text-[28px] font-bold">
-                  {formatMoney(dailyRate, CURRENCY, { cents: false })}
-                  <span className="ml-1.5 text-[15px] font-normal text-[var(--label-secondary)]">
-                    в день
-                  </span>
-                </p>
-                <p className="mt-2 text-[14px] leading-snug text-[var(--label-secondary)]">
-                  До конца месяца начислится{' '}
-                  {formatMoney(firstMonthAllowance, CURRENCY, { cents: false })} за{' '}
-                  {pluralDays(accrualDays)}
-                </p>
-              </div>
+              {limitMinor > 0 && (
+                <div className="glass mt-4 rounded-[var(--radius-card)] p-4">
+                  <p className="money text-[28px] font-bold">
+                    {formatMoney(dailyRate, currency, { cents: 'auto' })}
+                    <span className="ml-1.5 text-[15px] font-normal text-[var(--label-secondary)]">
+                      {t('money.perDay')}
+                    </span>
+                  </p>
+                  <p className="mt-2 text-[14px] text-[var(--label-secondary)]">
+                    {t('onboarding.untilMonthEnd', {
+                      amount: formatMoney(firstMonthAllowance, currency, { cents: 'auto' }),
+                      days: pluralDays(accrualDays),
+                    })}
+                  </p>
+                </div>
+              )}
             </StepShell>
           )}
 
-          {step === 3 && (
+          {step === 5 && (
             <StepShell
-              title="Есть остаток за этот месяц?"
-              hint="Если ты уже что-то откладывал или перетратил до начала учёта — укажи это здесь. Иначе просто пропусти."
+              titleTrailing={localeSwitcher}
+              title={t('onboarding.openingMonthTitle')}
+              hint={t('onboarding.openingHint')}
               footer={
-                <Button size="lg" full onClick={() => go(4)}>
-                  {openingMinor !== 0 ? 'Далее' : 'Пропустить'}
+                <Button size="lg" full onClick={() => go(6)}>
+                  {openingMinor !== 0 ? t('common.continue') : t('common.skip')}
                 </Button>
               }
             >
               <AmountDisplay
                 digits={opening}
-                currency={CURRENCY}
+                currency={currency}
                 className={openingSign === -1 ? 'text-[var(--negative)]' : undefined}
               />
               <div className="mt-4 flex justify-center gap-2">
-                <SignButton
-                  active={openingSign === 1}
-                  onClick={() => setOpeningSign(1)}
-                  label="В плюс"
-                />
+                <SignButton active={openingSign === 1} onClick={() => setOpeningSign(1)} label={t('onboarding.inPlus')} />
                 <SignButton
                   active={openingSign === -1}
                   onClick={() => setOpeningSign(-1)}
-                  label="В минус"
+                  label={t('onboarding.inMinus')}
                 />
               </div>
-              <Keypad value={opening} onChange={setOpening} className="mt-auto" />
+              <Keypad value={opening} onChange={setOpening} currency={currency} className="mt-auto" />
             </StepShell>
           )}
 
-          {step === 4 && (
+          {step === 6 && (
             <StepShell
-              title="Всё готово"
-              hint="Проверь настройки — потом их можно поменять в любой момент."
+              titleTrailing={localeSwitcher}
+              title={t('common.done')}
               footer={
                 <Button size="lg" full disabled={saving} onClick={finish}>
-                  {saving ? 'Создаём…' : 'Начать'}
+                  {saving ? t('common.wait') : t('onboarding.openApp')}
                 </Button>
               }
             >
               <div className="glass space-y-0 overflow-hidden rounded-[var(--radius-card)]">
-                <SummaryRow label="Лимит на месяц" value={formatMoney(limitMinor, CURRENCY)} />
                 <SummaryRow
-                  label="Норма в день"
-                  value={formatMoney(dailyRate, CURRENCY, { cents: false })}
+                  label={t('onboarding.summary.currency')}
+                  value={`${currencyMeta.flag} ${currency}`}
                 />
-                <SummaryRow label="Копилка" value={formatMoney(savingsMinor, CURRENCY)} />
-                <SummaryRow label="Старт" value={fullDate(startDate)} />
+                <SummaryRow
+                  label={t('onboarding.summary.limit')}
+                  value={formatMoney(limitMinor, currency, { cents: 'auto' })}
+                />
+                <SummaryRow
+                  label={t('onboarding.summary.daily')}
+                  value={formatMoney(dailyRate, currency, { cents: 'auto' })}
+                />
+                <SummaryRow
+                  label={t('onboarding.summary.savings')}
+                  value={formatMoney(savingsMinor, currency, { cents: 'auto' })}
+                />
+                <SummaryRow
+                  label={t('onboarding.summary.start')}
+                  value={fullDate(startDate)}
+                  last={openingMinor === 0}
+                />
                 {openingMinor !== 0 && (
                   <SummaryRow
-                    label="Начальный остаток"
-                    value={formatMoney(openingMinor, CURRENCY, { signed: true })}
+                    label={t('onboarding.summary.opening')}
+                    value={formatMoney(openingMinor, currency, { cents: 'auto' })}
+                    last
                   />
                 )}
-                <SummaryRow label="Дней в первом месяце" value={pluralDays(accrualDays)} />
-                <SummaryRow
-                  label="Начислится до конца месяца"
-                  value={formatMoney(firstMonthAllowance, CURRENCY, { cents: false })}
-                  last
-                />
               </div>
             </StepShell>
           )}
@@ -274,19 +351,41 @@ export function Onboarding() {
 function StepShell({
   title,
   hint,
+  titleTrailing,
   children,
   footer,
+  compactBody,
+  center,
 }: {
   title: string;
-  hint: string;
+  hint?: string;
+  titleTrailing?: ReactNode;
   children: ReactNode;
   footer: ReactNode;
+  compactBody?: boolean;
+  center?: boolean;
 }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col px-[var(--page-gutter)]">
-      <h1 className="pt-3 text-[30px] leading-[1.15] font-bold tracking-[-0.035em]">{title}</h1>
-      <p className="mt-2 text-[15px] leading-snug text-[var(--label-secondary)]">{hint}</p>
-      <div className="mt-6 flex min-h-0 flex-1 flex-col">{children}</div>
+      <div className="flex items-start justify-between gap-3 pt-3">
+        <h1 className="min-w-0 flex-1 text-[34px] leading-[1.1] font-bold tracking-[-0.04em]">
+          {title}
+        </h1>
+        {titleTrailing}
+      </div>
+      {hint && (
+        <p className="mt-2 text-[15px] leading-snug text-[var(--label-secondary)]">{hint}</p>
+      )}
+      <div
+        className={cn(
+          'flex min-h-0 flex-1 flex-col',
+          hint ? 'mt-5' : 'mt-8',
+          compactBody && 'overflow-hidden',
+          center && 'justify-center pb-8',
+        )}
+      >
+        {children}
+      </div>
       <div className="pt-3 pb-[calc(var(--safe-bottom)+10px)]">{footer}</div>
     </div>
   );
@@ -308,7 +407,7 @@ function OptionRow({
       type="button"
       onClick={onClick}
       className={cn(
-        'glass flex w-full items-center justify-between rounded-[var(--radius-control)] px-4 py-3 text-left',
+        'glass flex w-full items-center justify-between rounded-[var(--radius-control)] px-4 py-3.5 text-left',
         active && 'ring-2 ring-[var(--link)] ring-inset',
       )}
     >
@@ -353,10 +452,8 @@ function SummaryRow({
   last?: boolean;
 }) {
   return (
-    <div
-      className={cn('flex items-center justify-between px-4 py-3', !last && 'hairline-b')}
-    >
-      <span className="text-[16px] text-[var(--label-secondary)]">{label}</span>
+    <div className={cn('flex items-center justify-between px-4 py-3.5', !last && 'hairline-b')}>
+      <span className="text-[17px] text-[var(--label-secondary)]">{label}</span>
       <span className="money text-[17px] font-semibold">{value}</span>
     </div>
   );

@@ -6,7 +6,8 @@ import { Sheet } from './ui/Sheet';
 import type { MonthRecord, Settings } from '@/db/db';
 import { applyDailyAccrual, resetDailyAccrual } from '@/db/balanceActions';
 import { baseDailyFromLimit, effectiveDailyAccrual } from '@/lib/budget';
-import { formatMoney, keypadToMinor } from '@/lib/money';
+import { formatMoney, keypadToMinor, minorToKeypadDigits } from '@/lib/money';
+import { useTranslation } from '@/state/I18nContext';
 
 type Props = {
   open: boolean;
@@ -17,6 +18,7 @@ type Props = {
 };
 
 export function DailyAccrualSheet({ open, onClose, currency, settings, month }: Props) {
+  const { t } = useTranslation();
   const baseDaily = baseDailyFromLimit(month);
   const currentDaily = effectiveDailyAccrual(month, settings);
   const [digits, setDigits] = useState('');
@@ -24,10 +26,10 @@ export function DailyAccrualSheet({ open, onClose, currency, settings, month }: 
 
   useEffect(() => {
     if (!open) return;
-    setDigits(String(Math.round(currentDaily / 100)));
-  }, [open, currentDaily]);
+    setDigits(minorToKeypadDigits(currentDaily, currency));
+  }, [open, currentDaily, currency]);
 
-  const dailyMinor = keypadToMinor(digits);
+  const dailyMinor = keypadToMinor(digits, currency);
   const toSavings = Math.max(0, baseDaily - dailyMinor);
   const isCustom = dailyMinor !== baseDaily && dailyMinor > 0;
 
@@ -53,42 +55,42 @@ export function DailyAccrualSheet({ open, onClose, currency, settings, month }: 
     }
   };
 
+  const limitFmt = formatMoney(month.limitMinor, currency, { cents: false });
+  const baseFmt = formatMoney(baseDaily, currency, { cents: false });
+
   return (
-    <Sheet open={open} onClose={onClose} title="Дневное начисление">
+    <Sheet open={open} onClose={onClose} title={t('dailyAccrual.title')}>
       <div className="px-4 pb-4">
         <p className="pb-3 text-[14px] leading-snug text-[var(--label-secondary)]">
-          Из лимита {formatMoney(month.limitMinor, currency, { cents: false })} получается{' '}
-          {formatMoney(baseDaily, currency, { cents: false })} в день. Задай, сколько из этого
-          идёт на «Доступно» — остальное можно автоматически отправлять в копилку.
+          {t('dailyAccrual.intro', { limit: limitFmt, baseDaily: baseFmt })}
         </p>
 
         <AmountDisplay digits={digits} currency={currency} />
         <p className="mt-2 text-center text-[14px] text-[var(--label-secondary)]">
-          на «Доступно» в день
+          {t('dailyAccrual.perDayLabel')}
         </p>
 
-        <Keypad value={digits} onChange={setDigits} className="mt-3" />
+        <Keypad value={digits} onChange={setDigits} currency={currency} className="mt-3" />
 
         <div className="glass mt-4 space-y-2 rounded-[var(--radius-card)] p-4 text-[15px]">
           <Row
-            label="В копилку в день"
+            label={t('dailyAccrual.toSavingsDay')}
             value={formatMoney(toSavings, currency, { cents: false })}
             accent={toSavings > 0}
           />
           <Row
-            label="На «Доступно» за месяц"
+            label={t('dailyAccrual.availableMonth')}
             value={formatMoney(monthAvailable, currency, { cents: false })}
           />
           <Row
-            label="В копилку за месяц"
+            label={t('dailyAccrual.toSavingsMonth')}
             value={formatMoney(monthSavings, currency, { cents: false })}
           />
         </div>
 
         {dailyMinor > baseDaily && (
           <p className="mt-3 text-center text-[14px] text-[var(--ios-orange)]">
-            Больше базовой нормы ({formatMoney(baseDaily, currency, { cents: false })}). Автоотложение
-            из лимита будет нулевым.
+            {t('dailyAccrual.aboveBase', { baseDaily: baseFmt })}
           </p>
         )}
 
@@ -108,11 +110,11 @@ export function DailyAccrualSheet({ open, onClose, currency, settings, month }: 
                 }
               }}
             >
-              Сбросить
+              {t('common.reset')}
             </Button>
           )}
           <Button size="lg" full disabled={busy || dailyMinor <= 0} onClick={save}>
-            Сохранить
+            {t('common.save')}
           </Button>
         </div>
       </div>

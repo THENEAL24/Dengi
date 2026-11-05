@@ -1,9 +1,9 @@
 import { useRef, useState } from 'react';
 import { AmountSheet } from '@/components/AmountSheet';
-import { BankSmsSettingsSection } from '@/components/BankSmsSettingsSection';
 import { BalanceSheet } from '@/components/BalanceSheet';
 import { CategoriesSheet } from '@/components/CategoriesSheet';
 import { ConfirmSheet } from '@/components/ConfirmSheet';
+import { CurrencyPickerList } from '@/components/CurrencyPickerList';
 import { DailyAccrualSheet } from '@/components/DailyAccrualSheet';
 import { SavingsSheet } from '@/components/SavingsSheet';
 import { SavingsStrategySheet } from '@/components/SavingsStrategySheet';
@@ -11,10 +11,11 @@ import { List, ListRow } from '@/components/ui/List';
 import { Screen } from '@/components/ui/Screen';
 import { Segmented } from '@/components/ui/Segmented';
 import { Sheet } from '@/components/ui/Sheet';
-import { CheckIcon } from '@/components/ui/icons';
-import type { Settings as SettingsRecord, Theme } from '@/db/db';
+import type { AmountRounding, Settings as SettingsRecord, Theme } from '@/db/db';
 import {
+  applyAmountRounding,
   applyMonthlyLimit,
+  changeCurrency,
   exportSnapshot,
   importSnapshot,
   resetAll,
@@ -22,18 +23,23 @@ import {
   type Snapshot,
 } from '@/db/repo';
 import { useCategories, useCurrentMonthView, useMonthRecord, useSavingsTotal } from '@/state/hooks';
-import { cn } from '@/lib/cn';
 import { currentMonthId, monthTitle, todayIso } from '@/lib/date';
 import { strategyLabel } from '@/lib/savings-strategy';
 import { pluralDays } from '@/lib/plural';
+import { effectiveAmountRounding, getCurrency } from '@/lib/currencies';
+import { currencyPairRateLabel, roundingLabel } from '@/lib/currencyConvert';
+import {
+  formatExchangeRatesUpdated,
+  refreshExchangeRatesOnline,
+} from '@/lib/exchangeRates';
 import { currencySymbol, formatMoney } from '@/lib/money';
 import { haptic } from '@/lib/haptics';
-
-const CURRENCIES = ['RUB', 'USD', 'EUR', 'KZT', 'BYN', 'UAH', 'GEL', 'TRY', 'AMD', 'THB'];
+import { useTranslation } from '@/state/I18nContext';
 
 type Props = { settings: SettingsRecord };
 
 export function Settings({ settings }: Props) {
+  const { t } = useTranslation();
   const view = useCurrentMonthView();
   const month = useMonthRecord(currentMonthId());
   const savings = useSavingsTotal();
@@ -47,12 +53,17 @@ export function Settings({ settings }: Props) {
   const [savingsOpen, setSavingsOpen] = useState(false);
   const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [currencyOpen, setCurrencyOpen] = useState(false);
+  const [currencyConfirm, setCurrencyConfirm] = useState<string | null>(null);
   const [resetOpen, setResetOpen] = useState(false);
   const [importOpen, setImportOpen] = useState<Snapshot | null>(null);
   const [status, setStatus] = useState<string | null>(null);
 
   const currency = settings.currency;
+  const currencyMeta = getCurrency(currency);
+  const rounding = effectiveAmountRounding(settings.currency, settings.amountRounding);
   const math = view?.math;
+  const fmt = (minor: number, opts?: Parameters<typeof formatMoney>[2]) =>
+    formatMoney(minor, currency, { rounding, ...opts });
 
   const exportData = async () => {
     const snapshot = await exportSnapshot();
@@ -63,7 +74,7 @@ export function Settings({ settings }: Props) {
     // На iPhone «Поделиться» даёт сохранение в Файлы и отправку в мессенджеры
     if (navigator.canShare?.({ files: [file] })) {
       try {
-        await navigator.share({ files: [file], title: 'Резервная копия «Деньги»' });
+        await navigator.share({ files: [file], title: t('settings.shareBackupTitle') });
         return;
       } catch {
         // пользователь отменил — просто падаем в обычное скачивание
@@ -76,7 +87,7 @@ export function Settings({ settings }: Props) {
     link.download = fileName;
     link.click();
     URL.revokeObjectURL(url);
-    setStatus('Файл сохранён');
+    setStatus(t('settings.fileSaved'));
   };
 
   const pickFile = () => fileInput.current?.click();
@@ -87,61 +98,51 @@ export function Settings({ settings }: Props) {
       if (snapshot?.app !== 'dengi') throw new Error('bad file');
       setImportOpen(snapshot);
     } catch {
-      setStatus('Не удалось прочитать файл');
+      setStatus(t('error.readFileFailed'));
     }
   };
 
   return (
-    <Screen title="Настройки">
-      <List header="Банк (SMS)">
-        <BankSmsSettingsSection settings={settings} onStatus={setStatus} />
-      </List>
-
-      {status && (
-        <p className="px-[var(--page-gutter)] pt-1 text-center text-[13px] text-[var(--label-secondary)]">
-          {status}
-        </p>
-      )}
-
-      <List header="Бюджет">
+    <Screen title={t('settings.title')} showLocaleSwitcher>
+      <List header={t('settings.section.budget')}>
         <ListRow
-          label="Лимит на месяц"
-          value={formatMoney(settings.monthlyLimitMinor, currency, { cents: false })}
+          label={t('settings.monthlyLimit')}
+          value={fmt(settings.monthlyLimitMinor, { cents: false })}
           chevron
           onClick={() => setLimitOpen(true)}
         />
         <ListRow
-          label="На «Доступно» в день"
-          value={math ? formatMoney(math.dailyRateMinor, currency, { cents: false }) : '—'}
+          label={t('settings.dailyAvailable')}
+          value={math ? fmt(math.dailyRateMinor, { cents: 'auto' }) : '—'}
           chevron
           onClick={() => setDailyOpen(true)}
         />
         {math && math.dailySavingsMinor > 0 && (
           <ListRow
-            label="В копилку из лимита"
-            value={formatMoney(math.dailySavingsMinor, currency, { cents: false })}
+            label={t('settings.toSavingsFromLimit')}
+            value={fmt(math.dailySavingsMinor, { cents: false })}
           />
         )}
         <ListRow
-          label="Стратегия откладывания"
+          label={t('settings.savingsStrategy')}
           value={strategyLabel(settings.savingsStrategy)}
           chevron
           onClick={() => setStrategyOpen(true)}
         />
         <ListRow
-          label="Доступно сейчас"
-          value={math ? formatMoney(math.balanceMinor, currency, { cents: false, signed: true }) : '—'}
+          label={t('settings.availableNow')}
+          value={math ? fmt(math.balanceMinor, { cents: 'auto' }) : '—'}
           chevron
           onClick={() => setBalanceOpen(true)}
         />
         <ListRow
-          label="Копилка"
-          value={formatMoney(savings, currency, { cents: false })}
+          label={t('settings.savings')}
+          value={fmt(savings, { cents: false })}
           chevron
           onClick={() => setSavingsOpen(true)}
         />
         <ListRow
-          label="Категории"
+          label={t('settings.categories')}
           value={String(categories.length)}
           chevron
           onClick={() => setCategoriesOpen(true)}
@@ -152,72 +153,86 @@ export function Settings({ settings }: Props) {
       {math && (
         <List
           header={monthTitle(currentMonthId())}
-          footer="Пополнения и переводы в/из копилки учитываются в «Доступно» через корректировки месяца."
+          footer={t('settings.monthFooter')}
         >
           <ListRow
-            label="Перенос с прошлого месяца"
-            value={formatMoney(math.openingBalanceMinor, currency, { cents: false, signed: true })}
+            label={t('settings.carryOver')}
+            value={fmt(math.openingBalanceMinor, { cents: false })}
           />
           {math.externalTopUpsMinor > 0 && (
             <ListRow
-              label="Зачислено извне"
-              value={formatMoney(math.externalTopUpsMinor, currency, { cents: false })}
+              label={t('settings.externalTopUps')}
+              value={fmt(math.externalTopUpsMinor, { cents: false })}
             />
           )}
           {math.balanceAdjustmentsMinor !== 0 && (
             <ListRow
-              label="Корректировки"
-              value={formatMoney(math.balanceAdjustmentsMinor, currency, { cents: false, signed: true })}
+              label={t('settings.adjustments')}
+              value={fmt(math.balanceAdjustmentsMinor, { cents: false })}
             />
           )}
-          <ListRow label="Дней начисления" value={pluralDays(math.accrualDays)} />
+          <ListRow label={t('settings.accrualDays')} value={pluralDays(math.accrualDays)} />
           <ListRow
-            label="Начислится за месяц"
-            value={formatMoney(math.monthAllowanceMinor, currency, { cents: false })}
+            label={t('settings.willAccrue')}
+            value={fmt(math.monthAllowanceMinor, { cents: false })}
           />
-          <ListRow label="Начислено" value={formatMoney(math.accruedMinor, currency, { cents: false })} />
-          <ListRow
-            label="Потрачено"
-            value={formatMoney(math.spentMinor, currency, { cents: false })}
-            last
-          />
+          <ListRow label={t('settings.accrued')} value={fmt(math.accruedMinor, { cents: false })} />
+          <ListRow label={t('settings.spent')} value={fmt(math.spentMinor, { cents: false })} last />
         </List>
       )}
 
-      <List header="Внешний вид">
+      <List header={t('settings.section.appearance')}>
         <div className="flex items-center justify-between gap-3 px-4 py-2.5 hairline-b">
-          <span className="text-[17px]">Тема</span>
+          <span className="text-[17px]">{t('theme.label')}</span>
           <Segmented<Theme>
             className="w-[210px]"
             value={settings.theme}
             onChange={(theme) => void updateSettings({ theme })}
             options={[
-              { value: 'auto', label: 'Авто' },
-              { value: 'dark', label: 'Тёмная' },
-              { value: 'light', label: 'Светлая' },
+              { value: 'auto', label: t('theme.auto') },
+              { value: 'dark', label: t('theme.dark') },
+              { value: 'light', label: t('theme.light') },
+            ]}
+          />
+        </div>
+        <div className="flex items-center justify-between gap-3 px-4 py-2.5 hairline-b">
+          <span className="text-[17px]">{t('rounding.label')}</span>
+          <Segmented<AmountRounding>
+            className="w-[240px]"
+            value={rounding}
+            onChange={(mode) => void applyAmountRounding(mode)}
+            options={[
+              { value: 'precise', label: t('rounding.precise') },
+              { value: 'whole', label: t('rounding.whole') },
             ]}
           />
         </div>
         <ListRow
-          label="Валюта"
-          value={`${currency} ${currencySymbol(currency)}`}
+          label={t('currency.label')}
+          value={`${currencyMeta.flag} ${currency} ${currencySymbol(currency)}`}
           chevron
-          onClick={() => setCurrencyOpen(true)}
+          onClick={() => {
+            void refreshExchangeRatesOnline();
+            setCurrencyOpen(true);
+          }}
           last
         />
       </List>
 
-      <List
-        header="Данные"
-        footer="Локально на устройстве. Резервная копия без ключей SMS. При SMS-синхронизации на сервере только зашифрованная очередь (Vercel + Upstash)."
-      >
-        <ListRow label="Сохранить копию" chevron onClick={exportData} />
-        <ListRow label="Восстановить из копии" chevron onClick={pickFile} />
-        <ListRow label="Удалить все данные" destructive onClick={() => setResetOpen(true)} last />
+      <List header={t('settings.section.data')} footer={t('settings.dataFooter')}>
+        <ListRow label={t('settings.exportBackup')} chevron onClick={exportData} />
+        <ListRow label={t('settings.importBackup')} chevron onClick={pickFile} />
+        <ListRow label={t('settings.deleteAll')} destructive onClick={() => setResetOpen(true)} last />
       </List>
 
+      {status && (
+        <p className="px-[var(--page-gutter)] pt-3 text-center text-[13px] text-[var(--label-secondary)]">
+          {status}
+        </p>
+      )}
+
       <p className="px-[var(--page-gutter)] pt-4 text-center text-[13px] text-[var(--label-tertiary)]">
-        Деньги · версия 1.0
+        {t('app.version')}
       </p>
 
       <input
@@ -235,8 +250,8 @@ export function Settings({ settings }: Props) {
       <AmountSheet
         open={limitOpen}
         onClose={() => setLimitOpen(false)}
-        title="Лимит на месяц"
-        hint="Новый лимит применится к текущему и будущим месяцам. Закрытые месяцы останутся как есть."
+        title={t('settings.monthlyLimit')}
+        hint={t('settings.limitHint')}
         currency={currency}
         initialMinor={settings.monthlyLimitMinor}
         onSubmit={(minor) => applyMonthlyLimit(minor)}
@@ -290,38 +305,55 @@ export function Settings({ settings }: Props) {
 
       <CategoriesSheet open={categoriesOpen} onClose={() => setCategoriesOpen(false)} />
 
-      <Sheet open={currencyOpen} onClose={() => setCurrencyOpen(false)} title="Валюта">
-        <div className="px-4 pb-4">
-          <div className="glass overflow-hidden rounded-[var(--radius-card)]">
-            {CURRENCIES.map((code, index) => (
-              <button
-                key={code}
-                type="button"
-                onClick={() => {
-                  haptic('light');
-                  void updateSettings({ currency: code });
-                  setCurrencyOpen(false);
-                }}
-                className={cn(
-                  'flex w-full items-center gap-3 px-4 py-3 text-left',
-                  index < CURRENCIES.length - 1 && 'hairline-b',
-                )}
-              >
-                <span className="money w-8 text-[17px]">{currencySymbol(code)}</span>
-                <span className="flex-1 text-[17px]">{code}</span>
-                {code === currency && <CheckIcon size={18} className="text-[var(--link)]" />}
-              </button>
-            ))}
-          </div>
+      <Sheet open={currencyOpen} onClose={() => setCurrencyOpen(false)} title={t('currency.label')}>
+        <div className="flex max-h-[min(70dvh,520px)] flex-col px-4 pb-4">
+          <p className="pb-3 text-[13px] leading-snug text-[var(--label-secondary)]">
+            {formatExchangeRatesUpdated(settings) ??
+              t('exchangeRates.offlineHint')}{' '}
+            {t('exchangeRates.convertHint', { rounding: roundingLabel(rounding) })}
+          </p>
+          <CurrencyPickerList
+            value={currency}
+            onChange={(code) => {
+              if (code === currency) return;
+              setCurrencyConfirm(code);
+            }}
+          />
         </div>
       </Sheet>
 
       <ConfirmSheet
+        open={currencyConfirm !== null}
+        onClose={() => setCurrencyConfirm(null)}
+        title={t('settings.changeCurrencyTitle')}
+        message={
+          currencyConfirm
+            ? t('settings.changeCurrencyMessage', {
+                currency: currencyConfirm,
+                ratesKind: formatExchangeRatesUpdated(settings)
+                  ? t('exchangeRates.liveRates')
+                  : t('exchangeRates.savedRates'),
+                pairRate: currencyPairRateLabel(currency, currencyConfirm),
+              })
+            : ''
+        }
+        confirmLabel={t('settings.recalculate')}
+        onConfirm={async () => {
+          if (!currencyConfirm) return;
+          await changeCurrency(currencyConfirm);
+          haptic('success');
+          setCurrencyConfirm(null);
+          setCurrencyOpen(false);
+          setStatus(t('settings.amountsRecalculated'));
+        }}
+      />
+
+      <ConfirmSheet
         open={resetOpen}
         onClose={() => setResetOpen(false)}
-        title="Удалить все данные?"
-        message="Траты, месяцы, копилка и настройки будут стёрты с устройства. Отменить это нельзя."
-        confirmLabel="Удалить всё"
+        title={t('settings.deleteAllTitle')}
+        message={t('settings.deleteAllMessage')}
+        confirmLabel={t('settings.deleteAllConfirm')}
         destructive
         onConfirm={async () => {
           await resetAll();
@@ -332,19 +364,22 @@ export function Settings({ settings }: Props) {
       <ConfirmSheet
         open={importOpen !== null}
         onClose={() => setImportOpen(null)}
-        title="Восстановить из копии?"
+        title={t('settings.restoreTitle')}
         message={
           importOpen
-            ? `В файле ${importOpen.tx?.length ?? 0} трат и ${importOpen.months?.length ?? 0} месяцев. Текущие данные будут заменены.`
+            ? t('settings.restoreMessage', {
+                txCount: importOpen.tx?.length ?? 0,
+                monthCount: importOpen.months?.length ?? 0,
+              })
             : ''
         }
-        confirmLabel="Восстановить"
+        confirmLabel={t('settings.restoreConfirm')}
         destructive
         onConfirm={async () => {
           if (!importOpen) return;
           await importSnapshot(importOpen);
           haptic('success');
-          setStatus('Данные восстановлены');
+          setStatus(t('settings.dataRestored'));
         }}
       />
     </Screen>

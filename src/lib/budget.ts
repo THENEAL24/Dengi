@@ -49,9 +49,9 @@ export function accruedDaysFor(month: MonthRecord, today: IsoDate): number {
   return clamp(dayOf(today) - month.accrualStartDay + 1, 0, month.accrualDays);
 }
 
-/** Базовая дневная норма из лимита. */
+/** Базовая дневная норма из лимита (целые минорные единицы, без завышения). */
 export function baseDailyFromLimit(month: MonthRecord): number {
-  return Math.round(month.limitMinor / daysInMonth(month.id));
+  return Math.floor(month.limitMinor / daysInMonth(month.id));
 }
 
 /** Эффективная дневная норма на «доступно». */
@@ -67,7 +67,7 @@ export function effectiveDailyAccrual(
 /** Сколько всего начислится на «доступно» за месяц по выбранной дневной норме. */
 function spendableMonthTotal(month: MonthRecord, dailyMinor: number): number {
   if (dailyMinor === baseDailyFromLimit(month)) {
-    return Math.round((month.limitMinor * month.accrualDays) / daysInMonth(month.id));
+    return Math.floor((month.limitMinor * month.accrualDays) / daysInMonth(month.id));
   }
   return Math.round(dailyMinor * month.accrualDays);
 }
@@ -75,6 +75,14 @@ function spendableMonthTotal(month: MonthRecord, dailyMinor: number): number {
 /** Начисление за N дней по дневной сумме с корректным итогом месяца. */
 function accrualForDaily(month: MonthRecord, days: number, dailyMinor: number): number {
   if (days <= 0) return 0;
+  const baseDaily = baseDailyFromLimit(month);
+  if (dailyMinor === baseDaily) {
+    const daysInMo = daysInMonth(month.id);
+    if (days >= month.accrualDays) {
+      return Math.floor((month.limitMinor * month.accrualDays) / daysInMo);
+    }
+    return Math.floor((month.limitMinor * days) / daysInMo);
+  }
   const monthTotal = spendableMonthTotal(month, dailyMinor);
   if (days >= month.accrualDays) return monthTotal;
   return Math.round((monthTotal * days) / month.accrualDays);
@@ -149,12 +157,12 @@ export function closingBalanceOf(
 
 /** Дневная норма: лимит, разделённый на число дней в этом месяце. */
 export function dailyRateFor(limitMinor: number, monthId: string): number {
-  return Math.round(limitMinor / daysInMonth(monthId));
+  return Math.floor(limitMinor / daysInMonth(monthId));
 }
 
 /** Сколько начислится до конца месяца, если начать учёт с `startDay`. */
 export function allowanceFor(limitMinor: number, monthId: string, startDay = 1): number {
   const total = daysInMonth(monthId);
   const days = clamp(total - startDay + 1, 0, total);
-  return Math.round((limitMinor * days) / total);
+  return Math.floor((limitMinor * days) / total);
 }

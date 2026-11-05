@@ -23,10 +23,8 @@
 
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"],
-      "@bank/crypto": ["packages/bank-crypto/index.ts"],
-      "@bank/sms": ["packages/bank-sms/index.ts"]
+      "@/*": ["src/*"]
     }
   },
-  "include": ["src", "packages"]
+  "include": ["src"]
 }

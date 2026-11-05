@@ -16,6 +16,7 @@ import { cn } from '@/lib/cn';
 import { currentMonthId, dayTitle, type IsoDate } from '@/lib/date';
 import { pluralTopUp, pluralTx } from '@/lib/plural';
 import { formatMoney } from '@/lib/money';
+import { useTranslation } from '@/state/I18nContext';
 
 type Props = {
   settings: Settings;
@@ -25,6 +26,7 @@ type Props = {
 type HistoryMode = 'expenses' | 'topups';
 
 export function History({ settings, onEdit }: Props) {
+  const { t } = useTranslation();
   const today = useToday();
   const monthIds = useMonthIds();
   const [selected, setSelected] = useState<string | null>(null);
@@ -56,13 +58,13 @@ export function History({ settings, onEdit }: Props) {
   const listCount = mode === 'expenses' ? items.length : topUps.length;
   const subtitle =
     listCount === 0
-      ? 'Пока пусто'
+      ? t('history.empty')
       : mode === 'expenses'
         ? pluralTx(listCount)
         : pluralTopUp(listCount);
 
   return (
-    <Screen title="История" subtitle={subtitle}>
+    <Screen title={t('history.title')} subtitle={subtitle} showLocaleSwitcher>
       <MonthSwitcher monthId={monthId} monthIds={monthIds} onChange={setSelected} />
 
       <div className="px-[var(--page-gutter)]">
@@ -70,8 +72,8 @@ export function History({ settings, onEdit }: Props) {
           value={mode}
           onChange={setMode}
           options={[
-            { value: 'expenses', label: 'Траты' },
-            { value: 'topups', label: 'Зачисления' },
+            { value: 'expenses', label: t('history.expenses') },
+            { value: 'topups', label: t('history.topUps') },
           ]}
         />
       </div>
@@ -81,7 +83,7 @@ export function History({ settings, onEdit }: Props) {
           <div className="flex items-end justify-between">
             <div>
               <p className="text-[13px] text-[var(--label-secondary)]">
-                {mode === 'expenses' ? 'Потрачено за месяц' : 'Зачислено за месяц'}
+                {mode === 'expenses' ? t('history.spentMonth') : t('history.topUpsMonth')}
               </p>
               <p className="money mt-0.5 text-[28px] font-bold">
                 {formatMoney(mode === 'expenses' ? spentMinor : topUpsMinor, settings.currency, {
@@ -92,7 +94,7 @@ export function History({ settings, onEdit }: Props) {
             {math && mode === 'expenses' && (
               <div className="text-right">
                 <p className="text-[13px] text-[var(--label-secondary)]">
-                  {month?.status === 'closed' ? 'Итог месяца' : 'Баланс'}
+                  {month?.status === 'closed' ? t('history.monthTotal') : t('history.balance')}
                 </p>
                 <p
                   className={cn(
@@ -107,7 +109,7 @@ export function History({ settings, onEdit }: Props) {
                       ? (month.closingBalanceMinor ?? 0)
                       : math.balanceMinor,
                     settings.currency,
-                    { cents: false, signed: true },
+                    { cents: 'auto', signed: true },
                   )}
                 </p>
               </div>
@@ -116,10 +118,7 @@ export function History({ settings, onEdit }: Props) {
 
           {mode === 'expenses' && month?.status === 'closed' && (
             <p className="mt-3 text-[13px] text-[var(--label-secondary)]">
-              Месяц закрыт ·{' '}
-              {month.carryDecision === 'carry'
-                ? 'остаток перенесён на следующий месяц'
-                : 'остаток учтён в копилке'}
+              {month.carryDecision === 'carry' ? t('history.closedCarry') : t('history.closedSavings')}
             </p>
           )}
 
@@ -142,7 +141,7 @@ export function History({ settings, onEdit }: Props) {
         expenseGroups.length === 0 ? (
           <div className="px-[var(--page-gutter)] pt-3">
             <GlassCard className="text-center">
-              <p className="text-[15px] text-[var(--label-secondary)]">В этом месяце трат нет.</p>
+              <p className="text-[15px] text-[var(--label-secondary)]">{t('history.noExpensesMonth')}</p>
             </GlassCard>
           </div>
         ) : (
@@ -171,7 +170,7 @@ export function History({ settings, onEdit }: Props) {
         <div className="px-[var(--page-gutter)] pt-3">
           <GlassCard className="text-center">
             <p className="text-[15px] text-[var(--label-secondary)]">
-              В этом месяце зачислений нет.
+              {t('history.noTopUpsMonth')}
             </p>
           </GlassCard>
         </div>

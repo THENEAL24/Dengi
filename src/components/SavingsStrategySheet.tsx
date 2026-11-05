@@ -13,6 +13,7 @@ import {
 } from '@/lib/savings-strategy';
 import { cn } from '@/lib/cn';
 import { formatMoney } from '@/lib/money';
+import { useTranslation } from '@/state/I18nContext';
 
 const STRATEGIES: SavingsStrategy[] = ['remainder', 'smart', 'fixed', 'goal', 'manual'];
 
@@ -33,6 +34,7 @@ export function SavingsStrategySheet({
   month,
   savingsMinor,
 }: Props) {
+  const { t } = useTranslation();
   const [previews, setPreviews] = useState<Partial<Record<SavingsStrategy, StrategyPreview>>>({});
   const [fixedOpen, setFixedOpen] = useState(false);
   const [goalOpen, setGoalOpen] = useState(false);
@@ -66,20 +68,17 @@ export function SavingsStrategySheet({
 
   return (
     <>
-      <Sheet open={open} onClose={onClose} title="Стратегия откладывания" className="max-h-[88dvh]">
+      <Sheet open={open} onClose={onClose} title={t('strategy.title')} className="max-h-[88dvh]">
         <div className="scroll-y max-h-[72dvh] px-4 pb-4">
           <p className="pb-3 text-[14px] leading-snug text-[var(--label-secondary)]">
-            Каждый день приложение может автоматически пополнять копилку. Стратегия «Остаток от
-            лимита» работает вместе с настройкой дневного начисления на «Доступно».
+            {t('strategy.intro')}
           </p>
 
           {smartHint !== null && smartHint > 0 && (
             <div className="glass mb-3 rounded-[var(--radius-card)] p-3 text-[14px] text-[var(--label-secondary)]">
-              По закрытым месяцам в среднем оставалось{' '}
-              <span className="money font-semibold text-[var(--label-primary)]">
-                {formatMoney(smartHint, currency, { cents: false })}
-              </span>{' '}
-              в день — можно использовать стратегию «По истории трат».
+              {t('strategy.smartHint', {
+                amount: formatMoney(smartHint, currency, { cents: false }),
+              })}
             </div>
           )}
 
@@ -104,8 +103,10 @@ export function SavingsStrategySheet({
                     </p>
                     {preview && preview.dailyMinor > 0 && (
                       <p className="money mt-1 text-[15px] font-semibold text-[var(--ios-green)]">
-                        ≈ {formatMoney(preview.dailyMinor, currency, { cents: false })}/день ·{' '}
-                        {formatMoney(preview.monthlyMinor, currency, { cents: false })}/мес
+                        {t('strategy.previewLine', {
+                          daily: formatMoney(preview.dailyMinor, currency, { cents: false }),
+                          monthly: formatMoney(preview.monthlyMinor, currency, { cents: false }),
+                        })}
                       </p>
                     )}
                   </div>
@@ -117,12 +118,12 @@ export function SavingsStrategySheet({
 
           {activePreview && activePreview.dailyMinor > 0 && (
             <p className="mt-3 text-center text-[13px] text-[var(--label-tertiary)]">
-              Автоотложение начисляется при открытии приложения за каждый прошедший день.
+              {t('strategy.autoSyncHint')}
             </p>
           )}
 
           <Button full variant="plain" className="mt-4" onClick={onClose}>
-            Готово
+            {t('common.done')}
           </Button>
         </div>
       </Sheet>
@@ -130,8 +131,8 @@ export function SavingsStrategySheet({
       <AmountSheet
         open={fixedOpen}
         onClose={() => setFixedOpen(false)}
-        title="Фиксированная сумма в день"
-        hint="Столько будет уходить в копилку каждый день автоматически."
+        title={t('strategy.fixedTitle')}
+        hint={t('strategy.fixedHint')}
         currency={currency}
         initialMinor={settings.fixedDailySavingsMinor ?? 0}
         onSubmit={async (minor) => {
@@ -143,8 +144,11 @@ export function SavingsStrategySheet({
       <AmountSheet
         open={goalOpen}
         onClose={() => setGoalOpen(false)}
-        title="Цель накопления"
-        hint={`Сейчас в копилке ${formatMoney(savingsMinor, currency, { cents: false })}. Укажи цель — посчитаем дневную сумму на ${settings.savingsGoalMonths ?? 12} мес.`}
+        title={t('strategy.goalTitle')}
+        hint={t('strategy.goalHint', {
+          current: formatMoney(savingsMinor, currency, { cents: false }),
+          months: settings.savingsGoalMonths ?? 12,
+        })}
         currency={currency}
         initialMinor={settings.savingsGoalMinor ?? 0}
         onSubmit={async (minor) => {

@@ -22,6 +22,11 @@ describe('applyKeypadInput', () => {
     expect(applyKeypadInput('12.5', '.')).toBe('12.5');
   });
 
+  it('без дробной части игнорирует запятую', () => {
+    expect(applyKeypadInput('', '.', 0)).toBe('');
+    expect(applyKeypadInput('12', '5', 0)).toBe('125');
+  });
+
   it('копеек не больше двух', () => {
     expect(applyKeypadInput('12.5', '7')).toBe('12.57');
     expect(applyKeypadInput('12.57', '9')).toBe('12.57');
@@ -42,16 +47,18 @@ describe('перевод ввода в копейки', () => {
   it('считает и целые, и дробные суммы', () => {
     expect(keypadToMinor('')).toBe(0);
     expect(keypadToMinor('1250')).toBe(125_000);
-    expect(keypadToMinor('12.5')).toBe(1250);
-    expect(keypadToMinor('12.57')).toBe(1257);
-    expect(keypadToMinor('0.05')).toBe(5);
+    expect(keypadToMinor('12.5', 2)).toBe(1250);
+    expect(keypadToMinor('12.57', 2)).toBe(1257);
+    expect(keypadToMinor('0.05', 2)).toBe(5);
+    expect(keypadToMinor('1250', 'USD')).toBe(125_000);
+    expect(keypadToMinor('12.5', 'USD')).toBe(1250);
   });
 
   it('показывает ввод с разделителями разрядов', () => {
     // Intl в ru-RU разделяет разряды неразрывным пробелом
     expect(keypadDisplay('')).toBe('0');
     expect(keypadDisplay('1250')).toBe('1\u00a0250');
-    expect(keypadDisplay('12.')).toBe('12,');
-    expect(keypadDisplay('12.5')).toBe('12,5');
+    expect(keypadDisplay('12.', 2)).toBe('12,');
+    expect(keypadDisplay('12.5', 2)).toBe('12,5');
   });
 });

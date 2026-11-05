@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Sheet } from './ui/Sheet';
 import { Button } from './ui/Button';
+import { Sheet } from './ui/Sheet';
 import { CloseIcon, PlusIcon, TrashIcon } from './ui/icons';
 import { addCategory, deleteCategory, updateCategory } from '@/db/repo';
 import { useCategories } from '@/state/hooks';
 import { cn } from '@/lib/cn';
 import { haptic } from '@/lib/haptics';
+import { useTranslation } from '@/state/I18nContext';
 
 const PALETTE = [
   'var(--ios-green)',
@@ -28,6 +29,7 @@ type Props = {
 };
 
 export function CategoriesSheet({ open, onClose }: Props) {
+  const { t } = useTranslation();
   const categories = useCategories();
   const [editingId, setEditingId] = useState<number | null>(null);
   const [draft, setDraft] = useState({ name: '', emoji: '🏷️', color: PALETTE[0] });
@@ -63,14 +65,14 @@ export function CategoriesSheet({ open, onClose }: Props) {
     <Sheet
       open={open}
       onClose={onClose}
-      title="Категории"
+      title={t('categories.title')}
       action={
         <button
           type="button"
           onClick={onClose}
           className="text-[17px] font-semibold text-[var(--link)]"
         >
-          Готово
+          {t('common.done')}
         </button>
       }
       className="max-h-[86dvh]"
@@ -104,7 +106,7 @@ export function CategoriesSheet({ open, onClose }: Props) {
                 type="button"
                 onClick={() => category.id && void deleteCategory(category.id)}
                 className="pressable grid size-8 place-items-center rounded-full text-[var(--negative)]"
-                aria-label={`Удалить ${category.name}`}
+                aria-label={t('categories.deleteAria', { name: category.name })}
               >
                 <TrashIcon size={17} />
               </button>
@@ -113,14 +115,14 @@ export function CategoriesSheet({ open, onClose }: Props) {
         </div>
 
         <p className="px-2 pt-2 text-[13px] text-[var(--label-secondary)]">
-          Траты удалённой категории останутся в истории — они просто станут без категории.
+          {t('categories.deletedHint')}
         </p>
 
         {editorOpen ? (
           <div className="glass mt-3 rounded-[var(--radius-card)] p-4">
             <div className="flex items-center justify-between">
               <h3 className="text-[17px] font-semibold">
-                {creating ? 'Новая категория' : 'Изменить категорию'}
+                {creating ? t('categories.new') : t('categories.edit')}
               </h3>
               <button
                 type="button"
@@ -129,7 +131,7 @@ export function CategoriesSheet({ open, onClose }: Props) {
                   setEditingId(null);
                 }}
                 className="grid size-8 place-items-center rounded-full bg-[var(--fill-tertiary)]"
-                aria-label="Закрыть редактор"
+                aria-label={t('categories.closeEditorAria')}
               >
                 <CloseIcon size={16} />
               </button>
@@ -142,12 +144,12 @@ export function CategoriesSheet({ open, onClose }: Props) {
                   setDraft((prev) => ({ ...prev, emoji: [...event.target.value].slice(-1)[0] ?? '' }))
                 }
                 className="h-11 w-14 rounded-[var(--radius-control)] bg-[var(--fill-tertiary)] text-center text-[22px] outline-none"
-                aria-label="Эмодзи"
+                aria-label={t('categories.emojiAria')}
               />
               <input
                 value={draft.name}
                 onChange={(event) => setDraft((prev) => ({ ...prev, name: event.target.value }))}
-                placeholder="Название"
+                placeholder={t('categories.namePlaceholder')}
                 maxLength={24}
                 className="h-11 flex-1 rounded-[var(--radius-control)] bg-[var(--fill-tertiary)] px-3.5 outline-none placeholder:text-[var(--label-tertiary)]"
               />
@@ -164,19 +166,19 @@ export function CategoriesSheet({ open, onClose }: Props) {
                     draft.color === color && 'scale-110 ring-2 ring-[var(--label)] ring-offset-2 ring-offset-transparent',
                   )}
                   style={{ backgroundColor: color }}
-                  aria-label={`Цвет ${color}`}
+                  aria-label={t('categories.colorAria', { color })}
                 />
               ))}
             </div>
 
             <Button full className="mt-4" disabled={!draft.name.trim()} onClick={save}>
-              {creating ? 'Добавить' : 'Сохранить'}
+              {creating ? t('common.add') : t('common.save')}
             </Button>
           </div>
         ) : (
           <Button full variant="tinted" className="mt-3" onClick={startCreate}>
             <PlusIcon size={18} />
-            Новая категория
+            {t('categories.addNew')}
           </Button>
         )}
       </div>

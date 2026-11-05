@@ -1,6 +1,7 @@
 import type { TopUp } from '@/db/db';
 import { cn } from '@/lib/cn';
 import { formatMoney } from '@/lib/money';
+import { useTranslation } from '@/state/I18nContext';
 
 type Props = {
   topUp: TopUp;
@@ -14,7 +15,8 @@ function timeOf(timestamp: number): string {
 }
 
 export function TopUpRow({ topUp, currency, last }: Props) {
-  const title = topUp.note ?? 'Зачисление на доступные';
+  const { t } = useTranslation();
+  const title = topUp.note ?? t('topUp.defaultTitle');
 
   return (
     <div className={cn('flex items-center gap-3 px-4 py-2.5', !last && 'hairline-b')}>

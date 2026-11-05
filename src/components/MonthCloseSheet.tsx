@@ -5,9 +5,10 @@ import type { CarryDecision } from '@/db/db';
 import { closeMonth, type PendingClose } from '@/db/monthActions';
 import { allowanceFor } from '@/lib/budget';
 import { cn } from '@/lib/cn';
-import { monthTitle, monthTitleShort, shiftMonth } from '@/lib/date';
+import { monthTitle, monthTitleLower, monthTitleShort, shiftMonth } from '@/lib/date';
 import { haptic } from '@/lib/haptics';
 import { formatMoney } from '@/lib/money';
+import { useTranslation } from '@/state/I18nContext';
 
 type Props = {
   pending: PendingClose;
@@ -16,12 +17,13 @@ type Props = {
 };
 
 export function MonthCloseSheet({ pending, currency, savingsMinor }: Props) {
+  const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
   const { month, spentMinor, closingBalanceMinor } = pending;
   const positive = closingBalanceMinor >= 0;
-  const nextMonth = monthTitleShort(shiftMonth(month.id, 1));
-  // в середине фразы название месяца пишется со строчной
-  const nextMonthLower = nextMonth.toLocaleLowerCase('ru-RU');
+  const nextMonthId = shiftMonth(month.id, 1);
+  const nextMonth = monthTitleLower(nextMonthId);
+  const nextMonthTitle = monthTitleShort(nextMonthId);
 
   const apply = async (decision: CarryDecision) => {
     setBusy(true);
@@ -37,10 +39,10 @@ export function MonthCloseSheet({ pending, currency, savingsMinor }: Props) {
     <Sheet open onClose={() => {}} dismissable={false}>
       <div className="px-5 pt-5">
         <p className="text-[13px] font-medium tracking-wide text-[var(--label-secondary)] uppercase">
-          {monthTitle(month.id)} закончился
+          {t('monthClose.ended', { month: monthTitle(month.id) })}
         </p>
         <h2 className="mt-1 text-[26px] leading-tight font-bold tracking-[-0.03em]">
-          {positive ? 'Остались свободные деньги' : 'Вышел перерасход'}
+          {positive ? t('monthClose.surplusTitle') : t('monthClose.deficitTitle')}
         </h2>
 
         <p
@@ -54,7 +56,7 @@ export function MonthCloseSheet({ pending, currency, savingsMinor }: Props) {
 
         <div className="glass mt-4 overflow-hidden rounded-[var(--radius-card)]">
           <DetailRow
-            label="Начислено за месяц"
+            label={t('monthClose.accrued')}
             value={formatMoney(
               allowanceFor(month.limitMinor, month.id, month.accrualStartDay),
               currency,
@@ -63,45 +65,57 @@ export function MonthCloseSheet({ pending, currency, savingsMinor }: Props) {
           />
           {month.openingBalanceMinor !== 0 && (
             <DetailRow
-              label="Перенос с прошлого месяца"
+              label={t('monthClose.carryOver')}
               value={formatMoney(month.openingBalanceMinor, currency, {
                 cents: false,
                 signed: true,
               })}
             />
           )}
-          <DetailRow label="Потрачено" value={formatMoney(spentMinor, currency, { cents: false })} />
           <DetailRow
-            label="Копилка сейчас"
+            label={t('monthClose.spent')}
+            value={formatMoney(spentMinor, currency, { cents: false })}
+          />
+          <DetailRow
+            label={t('monthClose.savingsNow')}
             value={formatMoney(savingsMinor, currency, { cents: false })}
             last
           />
         </div>
 
         <p className="mt-4 px-1 text-[15px] text-[var(--label-secondary)]">
-          {positive
-            ? 'Что сделать с остатком?'
-            : 'Как закрыть минус?'}
+          {positive ? t('monthClose.surplusQuestion') : t('monthClose.deficitQuestion')}
         </p>
 
         <div className="mt-2 space-y-2 pb-2">
           <ChoiceCard
             icon={positive ? <ArrowDownIcon size={20} /> : <ArrowUpIcon size={20} />}
             title={
-              positive ? `Перенести в ${nextMonthLower}` : `Перенести долг в ${nextMonthLower}`
+              positive
+                ? t('monthClose.carrySurplusTitle', { month: nextMonth })
+                : t('monthClose.carryDebtTitle', { month: nextMonth })
             }
             description={
               positive
-                ? `${nextMonth} начнётся с ${formatMoney(closingBalanceMinor, currency, { cents: false })} сверху лимита`
-                : `${nextMonth} начнётся с минуса ${formatMoney(Math.abs(closingBalanceMinor), currency, { cents: false })}`
+                ? t('monthClose.carrySurplusDesc', {
+                    monthTitle: nextMonthTitle,
+                    amount: formatMoney(closingBalanceMinor, currency, { cents: false }),
+                  })
+                : t('monthClose.carryDebtDesc', {
+                    monthTitle: nextMonthTitle,
+                    amount: formatMoney(Math.abs(closingBalanceMinor), currency, { cents: false }),
+                  })
             }
             disabled={busy}
             onClick={() => apply('carry')}
           />
           <ChoiceCard
             icon={<PiggyIcon size={20} />}
-            title={positive ? 'Отправить в копилку' : 'Покрыть из копилки'}
-            description={`Копилка станет ${formatMoney(savingsMinor + closingBalanceMinor, currency, { cents: false })}, ${nextMonthLower} начнётся с нуля`}
+            title={positive ? t('monthClose.toSavingsTitle') : t('monthClose.fromSavingsTitle')}
+            description={t('monthClose.savingsDesc', {
+              amount: formatMoney(savingsMinor + closingBalanceMinor, currency, { cents: false }),
+              month: nextMonth,
+            })}
             disabled={busy}
             onClick={() => apply('savings')}
           />
