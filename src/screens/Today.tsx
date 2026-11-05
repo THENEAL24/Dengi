@@ -8,7 +8,7 @@ import { ProgressRing } from '@/components/ui/ProgressRing';
 import { ArrowDownIcon, PlusIcon } from '@/components/ui/icons';
 import { topUpAvailable } from '@/db/balanceActions';
 import { TxRow } from '@/components/TxRow';
-import type { Settings } from '@/db/db';
+import type { Settings, Tx } from '@/db/db';
 import { listRecentTx } from '@/db/repo';
 import { useCategories, useCurrentMonthView, useSavingsTotal, useToday } from '@/state/hooks';
 import { effectiveAmountRounding } from '@/lib/currencies';
@@ -22,10 +22,11 @@ import { useTranslation } from '@/state/I18nContext';
 type Props = {
   settings: Settings;
   onAddExpense: () => void;
+  onEditExpense: (tx: Tx) => void;
   onOpenHistory: () => void;
 };
 
-export function Today({ settings, onAddExpense, onOpenHistory }: Props) {
+export function Today({ settings, onAddExpense, onEditExpense, onOpenHistory }: Props) {
   const { t } = useTranslation();
   const [balanceOpen, setBalanceOpen] = useState(false);
   const [topUpOpen, setTopUpOpen] = useState(false);
@@ -51,7 +52,7 @@ export function Today({ settings, onAddExpense, onOpenHistory }: Props) {
     : '—';
 
   return (
-    <Screen title={t('tab.today')} subtitle={dateWithWeekday(today)} compactTop showLocaleSwitcher>
+    <Screen title={t('tab.today')} subtitle={dateWithWeekday(today)} compactTop>
       <div className="flex flex-col items-center px-[var(--page-gutter)] pt-0">
         <button type="button" className="pressable" onClick={() => setBalanceOpen(true)}>
           <ProgressRing progress={dailyRingProgress} size={228}>
@@ -215,7 +216,7 @@ export function Today({ settings, onAddExpense, onOpenHistory }: Props) {
                 category={tx.categoryId ? categoryById.get(tx.categoryId) : undefined}
                 currency={currency}
                 last={index === recent.length - 1}
-                onClick={onOpenHistory}
+                onClick={() => onEditExpense(tx)}
               />
             ))}
           </div>

@@ -7,7 +7,7 @@ import type { Tx } from '@/db/db';
 import { addTx, deleteTx, updateTx } from '@/db/repo';
 import { useCategories } from '@/state/hooks';
 import { cn } from '@/lib/cn';
-import { dayTitle, todayIso } from '@/lib/date';
+import { dayTitle, timeOf, todayIso } from '@/lib/date';
 import { haptic } from '@/lib/haptics';
 import { keypadToMinor, minorToKeypadDigits } from '@/lib/money';
 import { useTranslation } from '@/state/I18nContext';
@@ -104,6 +104,12 @@ export function ExpenseSheet({ open, onClose, currency, editing }: Props) {
           {editing ? t('common.done') : t('common.add')}
         </button>
       </div>
+
+      {editing && (
+        <p className="-mt-0.5 px-4 pb-2 text-center text-[13px] text-[var(--label-tertiary)]">
+          {t('expense.recordedAt', { time: timeOf(editing.createdAt) })}
+        </p>
+      )}
 
       <div className="px-4 pt-4 pb-2">
         <AmountDisplay digits={digits} currency={currency} />

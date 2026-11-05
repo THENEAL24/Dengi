@@ -72,7 +72,7 @@ export function Stats({ settings }: Props) {
   const daysWithSpending = byDay.filter((value) => value > 0).length;
 
   return (
-    <Screen title={t('stats.title')} subtitle={month ? undefined : t('stats.noData')} showLocaleSwitcher>
+    <Screen title={t('stats.title')} subtitle={month ? undefined : t('stats.noData')}>
       <MonthSwitcher monthId={monthId} monthIds={monthIds} onChange={setSelected} />
 
       <div className="space-y-2.5 px-[var(--page-gutter)]">

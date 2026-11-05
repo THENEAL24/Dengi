@@ -64,7 +64,7 @@ export function History({ settings, onEdit }: Props) {
         : pluralTopUp(listCount);
 
   return (
-    <Screen title={t('history.title')} subtitle={subtitle} showLocaleSwitcher>
+    <Screen title={t('history.title')} subtitle={subtitle}>
       <MonthSwitcher monthId={monthId} monthIds={monthIds} onChange={setSelected} />
 
       <div className="px-[var(--page-gutter)]">

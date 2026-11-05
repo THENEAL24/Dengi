@@ -222,6 +222,7 @@ export const ruMessages: Record<string, string> = {
   'stats.normLine': "норма {amount}",
   'expense.new': "Новая трата",
   'expense.edit': "Трата",
+  'expense.recordedAt': "Записано в {time}",
   'expense.dateAria': "Дата траты",
   'expense.deleteAria': "Удалить трату",
   'expense.notePlaceholder': "На что потратил?",

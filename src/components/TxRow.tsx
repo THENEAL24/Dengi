@@ -1,5 +1,6 @@
 import type { Category, Tx } from '@/db/db';
 import { cn } from '@/lib/cn';
+import { timeOf } from '@/lib/date';
 import { formatMoney } from '@/lib/money';
 import { useTranslation } from '@/state/I18nContext';
 
@@ -12,11 +13,6 @@ type Props = {
   /** Показать дату вместо времени — нужно в списке «последних трат» */
   showDate?: boolean;
 };
-
-function timeOf(timestamp: number): string {
-  const date = new Date(timestamp);
-  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-}
 
 export function TxRow({ tx, category, currency, onClick, last, showDate }: Props) {
   const { t } = useTranslation();

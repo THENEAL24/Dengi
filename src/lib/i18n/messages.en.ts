@@ -222,6 +222,7 @@ export const enMessages: Record<string, string> = {
   'stats.normLine': "norm {amount}",
   'expense.new': "New expense",
   'expense.edit': "Expense",
+  'expense.recordedAt': "Recorded at {time}",
   'expense.dateAria': "Expense date",
   'expense.deleteAria': "Delete expense",
   'expense.notePlaceholder': "What was it for?",

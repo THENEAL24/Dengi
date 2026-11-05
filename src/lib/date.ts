@@ -21,6 +21,12 @@ export function todayIso(): IsoDate {
   return toIso(new Date());
 }
 
+/** Время создания записи — «14:05» */
+export function timeOf(timestamp: number): string {
+  const date = new Date(timestamp);
+  return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 export function monthIdOf(iso: IsoDate): MonthId {
   return iso.slice(0, 7);
 }

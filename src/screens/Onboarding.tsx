@@ -161,7 +161,6 @@ export function Onboarding() {
 
           {step === 1 && (
             <StepShell
-              titleTrailing={localeSwitcher}
               title={t('currency.label')}
               hint={t('onboarding.currencyHint')}
               compactBody
@@ -177,7 +176,6 @@ export function Onboarding() {
 
           {step === 2 && (
             <StepShell
-              titleTrailing={localeSwitcher}
               title={t('settings.monthlyLimit')}
               hint={t('onboarding.limitHint')}
               footer={
@@ -202,7 +200,6 @@ export function Onboarding() {
 
           {step === 3 && (
             <StepShell
-              titleTrailing={localeSwitcher}
               title={t('settings.savings')}
               hint={t('onboarding.savingsHint')}
               footer={
@@ -218,7 +215,6 @@ export function Onboarding() {
 
           {step === 4 && (
             <StepShell
-              titleTrailing={localeSwitcher}
               title={t('onboarding.startDayTitle')}
               hint={t('onboarding.startHint')}
               footer={
@@ -274,7 +270,6 @@ export function Onboarding() {
 
           {step === 5 && (
             <StepShell
-              titleTrailing={localeSwitcher}
               title={t('onboarding.openingMonthTitle')}
               hint={t('onboarding.openingHint')}
               footer={
@@ -302,7 +297,6 @@ export function Onboarding() {
 
           {step === 6 && (
             <StepShell
-              titleTrailing={localeSwitcher}
               title={t('common.done')}
               footer={
                 <Button size="lg" full disabled={saving} onClick={finish}>

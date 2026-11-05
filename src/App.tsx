@@ -82,12 +82,13 @@ export function App() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.16 }}
+              transition={{ duration: 0.2, ease: [0.32, 0.72, 0, 1] }}
             >
               {tab === 'today' && (
                 <Today
                   settings={settings}
                   onAddExpense={openNewExpense}
+                  onEditExpense={openEditExpense}
                   onOpenHistory={() => setTab('history')}
                 />
               )}
